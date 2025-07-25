@@ -737,7 +737,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 w-[32rem]">
+    <div className="space-y-4 sm:space-y-6 w-full md:w-[32rem]">
       <motion.div 
         className="space-y-4 sm:space-y-6 w-full"
         initial={{ opacity: 0 }}

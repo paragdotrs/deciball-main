@@ -131,33 +131,38 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   useEffect(() => {
     if (!socket || !user) return;
 
+    let authErrorCount = 0;
+    const maxAuthErrors = 3;
+
     const handleMessage = (event: MessageEvent) => {
-      const { type, data } = JSON.parse(event.data);
-      console.log('MusicRoom received message:', type, data);
-      
-      switch (type) {
-        case 'room-info':
-          setIsAdmin(data.isAdmin || false);
-          setConnectedUsers(data.userCount || 0);
-          setRoomName(data.spaceName );
-          console.log('Room info updated:', { isAdmin: data.isAdmin, userCount: data.userCount });
-          break;
-        case 'room-joined':
-          console.log('Successfully joined room:', data);
-          console.log('   - SpaceId:', data.spaceId);
-          console.log('   - UserId:', data.userId);
-          console.log('   - Message:', data.message);
-          break;
-        case 'current-song-update':
-          console.log('Current song update received in MusicRoom:', data);
-          // Dispatch to window for Player component to handle
-          window.dispatchEvent(new CustomEvent('current-song-update', {
-            detail: data
-          }));
-          break;
-        case 'space-image-response':
-          console.log('Space image update received in MusicRoom:', data);
-          // Dispatch to window for components that need the image
+      try {
+        const { type, data } = JSON.parse(event.data);
+        console.log('MusicRoom received message:', type, data);
+        
+        switch (type) {
+          case 'room-info':
+            setIsAdmin(data.isAdmin || false);
+            setConnectedUsers(data.userCount || 0);
+            setRoomName(data.spaceName );
+            console.log('Room info updated:', { isAdmin: data.isAdmin, userCount: data.userCount });
+            break;
+          case 'room-joined':
+            console.log('Successfully joined room:', data);
+            console.log('   - SpaceId:', data.spaceId);
+            console.log('   - UserId:', data.userId);
+            console.log('   - Message:', data.message);
+            authErrorCount = 0; // Reset on successful join
+            break;
+          case 'current-song-update':
+            console.log('Current song update received in MusicRoom:', data);
+            // Dispatch to window for Player component to handle
+            window.dispatchEvent(new CustomEvent('current-song-update', {
+              detail: data
+            }));
+            break;
+          case 'space-image-response':
+            console.log('Space image update received in MusicRoom:', data);
+            // Dispatch to window for components that need the image
           window.dispatchEvent(new CustomEvent('space-image-update', {
             detail: data
           }));
@@ -191,36 +196,50 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
         case 'queue-update':
           console.log('Queue update received in MusicRoom:', data);
           break;
-        case 'error':
-          console.error('Room error:', data.message || data);
-          if (data.message === 'You are unauthorized to perform this action') {
-            console.error('Authorization error - this might be due to:');
-            console.error('   - Invalid or expired authentication token');
-            console.error('   - User not properly joined to the room');
-            console.error('   - User ID mismatch between token and request');
-            console.error('   - Room connection lost');
-            console.error('Current user info:', { 
-              userId: user?.id, 
-              hasToken: !!user?.token,
-              tokenLength: user?.token?.length 
-            });
-            console.error('Socket info:', { 
-              connected: socket?.readyState === WebSocket.OPEN,
-              readyState: socket?.readyState 
+          case 'error':
+            console.error('Room error:', {
+              message: data.message || 'Unknown error',
+              data: data,
+              timestamp: new Date().toISOString()
             });
             
-            if (user?.token && socket?.readyState === WebSocket.OPEN) {
-              console.log('Attempting to rejoin room due to authorization error...');
-              sendMessage('join-room', { 
-                spaceId, 
-                token: user.token,
-                spaceName: spaceInfo?.spaceName
+            if (data.message === 'You are unauthorized to perform this action') {
+              authErrorCount++;
+              console.error(`Authorization error (${authErrorCount}/${maxAuthErrors}) - this might be due to:`);
+              console.error('   - Invalid or expired authentication token');
+              console.error('   - User not properly joined to the room');
+              console.error('   - User ID mismatch between token and request');
+              console.error('   - Room connection lost');
+              console.error('Current user info:', { 
+                userId: user?.id, 
+                hasToken: !!user?.token,
+                tokenLength: user?.token?.length 
               });
+              console.error('Socket info:', { 
+                connected: socket?.readyState === WebSocket.OPEN,
+                readyState: socket?.readyState 
+              });
+              
+              // Only attempt to rejoin if under max attempts and have valid credentials
+              if (authErrorCount < maxAuthErrors && user?.token && socket?.readyState === WebSocket.OPEN) {
+                console.log(`Attempting to rejoin room due to authorization error (attempt ${authErrorCount}/${maxAuthErrors})...`);
+                setTimeout(() => {
+                  sendMessage('join-room', { 
+                    spaceId, 
+                    token: user.token,
+                    spaceName: spaceInfo?.spaceName
+                  });
+                }, 2000 * authErrorCount); // Exponential backoff
+              } else if (authErrorCount >= maxAuthErrors) {
+                console.error('Max auth error attempts reached. Stopping reconnection attempts.');
+              }
             }
-          }
-          break;
-        default:
-          console.log('Unhandled message type in MusicRoom:', type);
+            break;
+          default:
+            console.log('Unhandled message type in MusicRoom:', type);
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message in MusicRoom:', error);
       }
     };
 
@@ -305,128 +324,217 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
           </SidebarProvider>
         </div>
 
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 relative">
           <div className="flex items-center justify-center p-2 sm:p-3 md:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 md:gap-8 bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl px-3 sm:px-6 md:px-12 py-3 sm:py-3 md:py-4 shadow-2xl w-full max-w-[95%] sm:max-w-[400px] md:min-w-[900px] md:max-w-5xl">
               
-              <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
-                <BlurText 
-                  text={roomName} 
-                  animateBy="words"
-                  className="text-base sm:text-lg md:text-xl font-bold text-white text-left truncate flex-1 sm:flex-none"
-                  delay={150}
-                  direction="top"
-                />
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Badge 
-                    variant={
-                      loading ? 'secondary' :
-                      connectionError ? 'destructive' :
-                      socket?.readyState === WebSocket.OPEN ? 'default' : 'secondary'
-                    }
-                    className="flex items-center gap-1 sm:gap-1.5 bg-black/30 border-white/20 text-gray-200 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs"
-                  >
-                    <div 
-                      className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${
-                        loading ? 'bg-yellow-400 animate-pulse' :
-                        connectionError ? 'bg-red-400' :
-                        socket?.readyState === WebSocket.OPEN ? 'bg-emerald-400' : 'bg-gray-400'
-                      }`}
-                    />
-                    <span className="hidden sm:inline">
-                      {loading ? 'Connecting' :
-                       connectionError ? 'Error' :
-                       socket?.readyState === WebSocket.OPEN ? 'Live' : 'Offline'}
-                    </span>
-                    <span className="sm:hidden">
-                      {loading ? '...' :
-                       connectionError ? '!' :
-                       socket?.readyState === WebSocket.OPEN ? '●' : '○'}
-                    </span>
-                  </Badge>
+              {/* Mobile Layout - Header with profile picture and room name */}
+              <div className="flex items-center justify-between w-full sm:hidden">
+                <div className="flex-1 flex justify-center">
+                  <BlurText 
+                    text={roomName} 
+                    animateBy="words"
+                    className="text-lg font-bold text-white text-center"
+                    delay={150}
+                    direction="top"
+                  />
+                </div>
+                <div className="flex-shrink-0">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300 shadow-lg bg-black/40 backdrop-blur-xl border border-white/20 hover:border-white/30">
+                        <Avatar className="h-9 w-9 ring-1 ring-cyan-400/30 hover:ring-cyan-400/50 transition-all duration-300">
+                          <AvatarImage 
+                            src={getProfilePicture() || undefined} 
+                            alt={String(session?.user?.name || session?.user?.username || 'User')} 
+                            className="object-cover"
+                          />
+                          <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold text-sm">
+                            {getUserInitials()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56 bg-black/90 border-white/20 backdrop-blur-xl" align="end" forceMount>
+                      <DropdownMenuLabel className="font-normal">
+                        <div className="flex flex-col space-y-1">
+                          <p className="text-sm font-medium leading-none text-white">
+                            {session?.user?.name || session?.user?.username || 'User'}
+                          </p>
+                          <p className="text-xs leading-none text-gray-400">
+                            {session?.user?.email}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant={isAdmin ? 'default' : 'secondary'} className="text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0">
+                              {isAdmin ? 'Admin' : 'Listener'}
+                            </Badge>
+                          </div>
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator className="bg-white/20" />
+                      <DropdownMenuItem 
+                        className="text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                        onClick={() => router.push('/profile')}
+                      >
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Profile</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                        onClick={() => router.push('/settings')}
+                      >
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Settings</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-white/20" />
+                      <DropdownMenuItem 
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer"
+                        onClick={handleLogout}
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Log out</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
-              
-              <div className="flex-1 w-full sm:max-w-xs md:max-w-xl order-3 sm:order-2">
+
+              {/* Desktop Layout - Original layout */}
+              <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-4 md:gap-8 w-full">
+                <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
+                  <BlurText 
+                    text={roomName} 
+                    animateBy="words"
+                    className="text-base sm:text-lg md:text-xl font-bold text-white text-left truncate flex-1 sm:flex-none"
+                    delay={150}
+                    direction="top"
+                  />
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge 
+                      variant={
+                        loading ? 'secondary' :
+                        connectionError ? 'destructive' :
+                        socket?.readyState === WebSocket.OPEN ? 'default' : 'secondary'
+                      }
+                      className="flex items-center gap-1 sm:gap-1.5 bg-black/30 border-white/20 text-gray-200 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs"
+                    >
+                      <div 
+                        className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${
+                          loading ? 'bg-yellow-400 animate-pulse' :
+                          connectionError ? 'bg-red-400' :
+                          socket?.readyState === WebSocket.OPEN ? 'bg-emerald-400' : 'bg-gray-400'
+                        }`}
+                      />
+                      <span className="hidden sm:inline">
+                        {loading ? 'Connecting' :
+                         connectionError ? 'Error' :
+                         socket?.readyState === WebSocket.OPEN ? 'Live' : 'Offline'}
+                      </span>
+                      <span className="sm:hidden">
+                        {loading ? '...' :
+                         connectionError ? '!' :
+                         socket?.readyState === WebSocket.OPEN ? '●' : '○'}
+                      </span>
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="flex-1 w-full sm:max-w-xs md:max-w-xl">
+                  <SearchSongPopup 
+                    onSelect={(track) => {
+                      console.log('Song selected:', track.name);
+                    }}
+                    onBatchSelect={handleBatchAddToQueue}
+                    buttonClassName="w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-3 sm:px-4 md:px-6 py-2 sm:py-2 md:py-2.5 backdrop-blur-sm transition-all duration-300 text-xs sm:text-sm md:text-base"
+                    maxResults={12}
+                    isAdmin={true}
+                    enableBatchSelection={true}
+                    spaceId={spaceId}
+                  />
+                </div>
+
+                <div className="flex items-center justify-center sm:justify-end gap-3">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300">
+                        <Avatar className="h-10 w-10 ring-2 ring-cyan-400/30 hover:ring-cyan-400/50 transition-all duration-300">
+                          <AvatarImage 
+                            src={getProfilePicture() || undefined} 
+                            alt={String(session?.user?.name || session?.user?.username || 'User')} 
+                            className="object-cover"
+                          />
+                          <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold">
+                            {getUserInitials()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56 bg-black/90 border-white/20 backdrop-blur-xl" align="end" forceMount>
+                      <DropdownMenuLabel className="font-normal">
+                        <div className="flex flex-col space-y-1">
+                          <p className="text-sm font-medium leading-none text-white">
+                            {session?.user?.name || session?.user?.username || 'User'}
+                          </p>
+                          <p className="text-xs leading-none text-gray-400">
+                            {session?.user?.email}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant={isAdmin ? 'default' : 'secondary'} className="text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0">
+                              {isAdmin ? 'Admin' : 'Listener'}
+                            </Badge>
+                          </div>
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator className="bg-white/20" />
+                      <DropdownMenuItem 
+                        className="text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                        onClick={() => router.push('/profile')}
+                      >
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Profile</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                        onClick={() => router.push('/settings')}
+                      >
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Settings</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-white/20" />
+                      <DropdownMenuItem 
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer"
+                        onClick={handleLogout}
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Log out</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+
+              {/* Mobile Search - Full width below room info */}
+              <div className="w-full sm:hidden">
                 <SearchSongPopup 
                   onSelect={(track) => {
                     console.log('Song selected:', track.name);
                   }}
                   onBatchSelect={handleBatchAddToQueue}
-                  buttonClassName="w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-3 sm:px-4 md:px-6 py-2 sm:py-2 md:py-2.5 backdrop-blur-sm transition-all duration-300 text-xs sm:text-sm md:text-base"
+                  buttonClassName="w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-4 py-2.5 backdrop-blur-sm transition-all duration-300 text-sm"
                   maxResults={12}
                   isAdmin={true}
                   enableBatchSelection={true}
                   spaceId={spaceId}
                 />
               </div>
-
-              <div className="flex items-center justify-center sm:justify-end gap-3 order-2 sm:order-3">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300">
-                      <Avatar className="h-10 w-10 ring-2 ring-cyan-400/30 hover:ring-cyan-400/50 transition-all duration-300">
-                        <AvatarImage 
-                          src={getProfilePicture() || undefined} 
-                          alt={String(session?.user?.name || session?.user?.username || 'User')} 
-                          className="object-cover"
-                        />
-                        <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold">
-                          {getUserInitials()}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-black/90 border-white/20 backdrop-blur-xl" align="end" forceMount>
-                    <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none text-white">
-                          {session?.user?.name || session?.user?.username || 'User'}
-                        </p>
-                        <p className="text-xs leading-none text-gray-400">
-                          {session?.user?.email}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant={isAdmin ? 'default' : 'secondary'} className="text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0">
-                            {isAdmin ? 'Admin' : 'Listener'}
-                          </Badge>
-                        </div>
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator className="bg-white/20" />
-                    <DropdownMenuItem 
-                      className="text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer"
-                      onClick={() => router.push('/profile')}
-                    >
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer"
-                      onClick={() => router.push('/settings')}
-                    >
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Settings</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-white/20" />
-                    <DropdownMenuItem 
-                      className="text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer"
-                      onClick={handleLogout}
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
             </div>
           </div>
 
-            <div className="flex p-2 sm:p-4">
-              <div className="max-w-[98rem] mx-auto h-full w-full">
+            <div className="flex p-2 sm:p-4 justify-center">
+              <div className="w-full max-w-[95%] sm:max-w-[400px] md:max-w-[98rem] mx-auto h-full">
                 <div className="flex flex-col md:flex-row md:flex gap-4 md:justify-between h-full min-h-[calc(100vh-200px)]">
                   {/* Left Column */}
-                  <div className="flex flex-col gap-4 order-1 md:order-1">
+                  <div className="flex flex-col gap-4 order-1 md:order-1 w-full md:w-auto ml-2 md:ml-0">
                     <BlurComponent 
                       delay={500} 
                       direction="top"
@@ -460,7 +568,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                     </BlurComponent>
                   </div>
                   {/* Right Column */}
-                  <div className="w-full md:min-w-[625px] order-2 md:order-2">
+                  <div className="w-full md:min-w-[625px] order-2 md:order-2 ml-2 md:ml-0">
                     <BlurComponent
                       delay={600}
                       direction="top"

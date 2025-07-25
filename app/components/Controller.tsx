@@ -59,6 +59,13 @@ const AudioController: React.FC<AudioControllerProps> = ({
     }
   };
 
+  const handlePlayPauseClick = (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('[AudioController] Play/Pause button clicked/touched');
+    handleTogglePlayPause();
+  };
+
   const [isDragging, setIsDragging] = useState(false);
   const [tempProgress, setTempProgress] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
@@ -75,29 +82,41 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
   const progressBarRef = useRef<HTMLDivElement>(null);
 
-  const handleProgressMouseDown = (e: any) => {
+  const getEventPosition = (e: any) => {
+    // Handle both mouse and touch events
+    if (e.touches && e.touches.length > 0) {
+      return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+    } else if (e.changedTouches && e.changedTouches.length > 0) {
+      return { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY };
+    }
+    return { clientX: e.clientX, clientY: e.clientY };
+  };
+
+  const handleProgressStart = (e: any) => {
+    if (!isAdmin) return;
     
     e.preventDefault();
     setIsDragging(true);
     
     if (progressBarRef.current) {
       const rect = progressBarRef.current.getBoundingClientRect();
-      const percent = ((e.clientX - rect.left) / rect.width) * 100;
+      const position = getEventPosition(e);
+      const percent = ((position.clientX - rect.left) / rect.width) * 100;
       setTempProgress(Math.max(0, Math.min(100, percent)));
     }
   };
 
-  const handleProgressMouseMove = (e : any) => {
+  const handleProgressMove = (e: any) => {
     if (!isDragging || !progressBarRef.current) return;
     
     const rect = progressBarRef.current.getBoundingClientRect();
-    const percent = ((e.clientX - rect.left) / rect.width) * 100;
+    const position = getEventPosition(e);
+    const percent = ((position.clientX - rect.left) / rect.width) * 100;
     setTempProgress(Math.max(0, Math.min(100, percent)));
   };
 
-  const handleProgressMouseUp = () => {
+  const handleProgressEnd = () => {
     if (isDragging) {
-      
       const newTime = (tempProgress / 100) * duration;
       
       setIsLocalSeeking(true);
@@ -109,11 +128,12 @@ const AudioController: React.FC<AudioControllerProps> = ({
   };
 
   const handleProgressClick = (e: any) => {
-    
+    if (!isAdmin) return;
     
     if (progressBarRef.current) {
       const rect = progressBarRef.current.getBoundingClientRect();
-      const percent = ((e.clientX - rect.left) / rect.width) * 100;
+      const position = getEventPosition(e);
+      const percent = ((position.clientX - rect.left) / rect.width) * 100;
       const newTime = (percent / 100) * duration;
       
       setIsLocalSeeking(true);
@@ -178,15 +198,24 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
   useEffect(() => {
     if (isDragging) {
-      const handleMouseMove = (e: MouseEvent) => handleProgressMouseMove(e);
-      const handleMouseUp = () => handleProgressMouseUp();
+      const handleMouseMove = (e: MouseEvent) => handleProgressMove(e);
+      const handleMouseUp = () => handleProgressEnd();
+      const handleTouchMove = (e: TouchEvent) => {
+        e.preventDefault(); // Prevent scrolling
+        handleProgressMove(e);
+      };
+      const handleTouchEnd = () => handleProgressEnd();
       
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleTouchEnd);
       
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('touchmove', handleTouchMove);
+        document.removeEventListener('touchend', handleTouchEnd);
       };
     }
   }, [isDragging, tempProgress, duration, isAdmin, seek]);
@@ -202,19 +231,21 @@ const AudioController: React.FC<AudioControllerProps> = ({
   const progressPercent = isDragging ? tempProgress : (progress / duration) * 100;
 
   return (
-    <div className="bg-gradient-to-r from-[#1C1E1F] via-[#1C1E1F] to-[#1C1E1F] border-t border-[#424244] rounded-xl p-4 shadow-2xl">
+    <div className="bg-gradient-to-r from-[#1C1E1F] via-[#1C1E1F] to-[#1C1E1F] border-t border-[#424244] rounded-xl p-3 sm:p-4 shadow-2xl">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-4">
-          <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-            <span>{formatTime(progress)}</span>
+        <div className="mb-3 sm:mb-4">
+          <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-400 mb-1">
+            <span className="text-xs sm:text-sm">{formatTime(progress)}</span>
             <div 
               ref={progressBarRef}
+              data-progress-bar
               className={`flex-1 bg-gray-600 rounded-full h-1 relative group transition-all duration-200 ${
                 isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
               } ${
                 isSeeking ? 'ring-2 ring-gray-400 ring-opacity-50' : ''
               }`}
-              onMouseDown={handleProgressMouseDown}
+              onMouseDown={handleProgressStart}
+              onTouchStart={handleProgressStart}
               onClick={handleProgressClick}
               title={
                 isSeeking ? 'Seeking...' : 
@@ -236,13 +267,87 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 }`} />
               </div>
             </div>
-            <span>{formatTime(duration)}</span>
+            <span className="text-xs sm:text-sm">{formatTime(duration)}</span>
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
+        {/* Mobile Layout */}
+        <div className="flex flex-col gap-3 sm:hidden">
+          {/* Main Controls Row */}
+          <div className="flex items-center justify-center gap-2">
+            <button
+              onClick={playPrev}
+              className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
+              title="Previous"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              <div className="text-current">
+                <PreviousIcon width={16} height={16} />
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                const newTime = Math.max(0, progress - 10);
+                seek(newTime);
+              }}
+              className="p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
+              title="Back 10s"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              <div className="text-current">
+                <BackTenSecondIcon width={14} height={14} />
+              </div>
+            </button>
+
+            <button
+              onClick={handlePlayPauseClick}
+              onTouchEnd={handlePlayPauseClick}
+              className="text-black p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[48px] min-h-[48px] active:scale-95"
+              title={isPlaying ? "Pause" : "Play"}
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              {isPlaying ? (
+                <div className="text-black">
+                  <PauseIcon width={32} className='w-8' height={32} />
+                </div>
+              ) : (
+                <div className="text-black">
+                  <PlayIcon width={32} className='w-8' height={32} />
+                </div>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                const newTime = Math.min(duration, progress + 10);
+                seek(newTime);
+              }}
+              className="p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
+              title="Forward 10s"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              <div className="text-current">
+                <ForwardTenSecondIcon width={14} height={14} />
+              </div>
+            </button>
+
+            <button
+              onClick={playNext}
+              className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
+              title="Next"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              <div className="text-current">
+                <NextIcon width={16} height={16} />
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop Layout */}
+        <div className="hidden sm:flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-         
             <button
               onClick={() => setIsLiked(!isLiked)}
               className={`p-1 rounded-full transition-colors ${
@@ -254,12 +359,11 @@ const AudioController: React.FC<AudioControllerProps> = ({
           </div>
 
           <div className="flex items-center gap-2 mx-6 justify-center">
-          
-
             <button
               onClick={playPrev}
-              className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700"
+              className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
               title="Previous (Ctrl + ←)"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               <div className="text-current">
                 <PreviousIcon width={20} height={20} />
@@ -271,18 +375,21 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 const newTime = Math.max(0, progress - 10);
                 seek(newTime);
               }}
-              className="p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700"
+              className="p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
               title="Back 10 seconds"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              <div className="text-">
+              <div className="text-current">
                 <BackTenSecondIcon width={16} height={16} />
               </div>
             </button>
 
             <button
-              onClick={handleTogglePlayPause}
-              className=" text-black p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[56px] min-h-[56px]"
+              onClick={handlePlayPauseClick}
+              onTouchEnd={handlePlayPauseClick}
+              className="text-black p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[56px] min-h-[56px] active:scale-95"
               title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               {isPlaying ? (
                 <div className="text-black">
@@ -300,8 +407,9 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 const newTime = Math.min(duration, progress + 10);
                 seek(newTime);
               }}
-              className="p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700"
+              className="p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
               title="Forward 10 seconds"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               <div className="text-current">
                 <ForwardTenSecondIcon width={16} height={16} />
@@ -310,20 +418,18 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
             <button
               onClick={playNext}
-              className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700"
+              className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
               title="Next (Ctrl + →)"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               <div className="text-current">
                 <NextIcon width={20} height={20} />
               </div>
             </button>
-
-    
-           
           </div>
 
           <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
-            <div className="w-32 max-w-32 ">
+            <div className="w-32 max-w-32">
               <VolumeBar
                 defaultValue={volume * 100}
                 startingValue={0}
@@ -331,8 +437,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 className="w-full"
               />
             </div>
-
-           
           </div>
         </div>
       </div>
@@ -357,6 +461,21 @@ const AudioController: React.FC<AudioControllerProps> = ({
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         
+        /* Mobile touch optimizations */
+        button {
+          -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
+          user-select: none;
+          -webkit-user-select: none;
+        }
+        
+        /* Progress bar touch optimizations */
+        [data-progress-bar] {
+          touch-action: none;
+          user-select: none;
+          -webkit-user-select: none;
+        }
+        
         .text-black svg path {
           stroke: #000000 !important;
         }
@@ -369,6 +488,19 @@ const AudioController: React.FC<AudioControllerProps> = ({
         }
         button:hover .text-current svg path {
           stroke: currentColor !important;
+        }
+        
+        /* Active state for better mobile feedback */
+        button:active {
+          transform: scale(0.95);
+        }
+        
+        /* Larger touch targets for mobile */
+        @media (max-width: 640px) {
+          button {
+            min-height: 44px;
+            min-width: 44px;
+          }
         }
       `}</style>
     </div>

@@ -152,7 +152,7 @@ export const Player: React.FC<PlayerProps> = ({
  console.log("[Player] Rendered with currentSong:", currentSong);
   return (
     <motion.div
-      className={`w-[full] space-y-4 ${className}`}
+      className={`w-full space-y-4 ${className}`}
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, ease: 'easeOut' }}

@@ -185,7 +185,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
         draggable
         onDragStart={(e) => handleDragStart(e)}
         onDragEnd={handleDragEnd}
-        className="relative h-auto min-h-40 overflow-hidden rounded-xl bg-[#1C1E1F]  shadow-lg border border-[#424244] transition-all duration-300 hover:shadow-xl hover:border-gray-600"
+        className="relative w-full aspect-square max-w-[280px] sm:max-w-sm mx-auto overflow-hidden rounded-xl bg-[#1C1E1F] shadow-lg border border-[#424244] transition-all duration-300 hover:shadow-xl hover:border-gray-600"
       >
         {!currentSong?.video ? (
           <div className="relative">

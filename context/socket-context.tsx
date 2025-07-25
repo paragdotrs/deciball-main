@@ -300,8 +300,20 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                 }));
                 break;
               case "error":
-                console.error("WebSocket error received:", message.data);
-                console.error("Error message:", message.data?.message || 'Unknown error');
+                console.error("WebSocket error received:", {
+                  message: message.data?.message || 'Unknown server error',
+                  code: message.data?.code,
+                  details: message.data?.details,
+                  timestamp: new Date().toISOString()
+                });
+                
+                // Handle specific error types
+                if (message.data?.message?.includes('unauthorized') || message.data?.message?.includes('Unauthorized')) {
+                  console.error("Authentication error - attempting to refresh token");
+                  setConnectionError(true);
+                  // Don't reconnect immediately on auth errors
+                  return;
+                }
                 break;
               default:
                 console.log("Unhandled message type:", message.type);
@@ -316,25 +328,52 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
           console.log(`WebSocket Disconnected. Code: ${event.code}, Reason: ${event.reason}`);
           setSocket(null);
           
-          if (!isCleanedUp && event.code !== 1000 && connectionAttempts < maxRetries) {
-            console.log(`Attempting to reconnect in 3 seconds... (${connectionAttempts}/${maxRetries})`);
+          // Don't attempt reconnection for certain close codes
+          const shouldNotReconnect = [
+            1000, // Normal closure
+            1002, // Protocol error 
+            1003, // Unsupported data
+            1011, // Server error
+            4000, // Custom: Auth failure
+            4001, // Custom: Invalid token
+          ];
+          
+          if (!isCleanedUp && 
+              !shouldNotReconnect.includes(event.code) && 
+              connectionAttempts < maxRetries) {
+            console.log(`Attempting to reconnect in ${3 * connectionAttempts} seconds... (${connectionAttempts}/${maxRetries})`);
             setConnectionError(true);
             reconnectTimer = setTimeout(() => {
               if (!isCleanedUp) {
                 connectWebSocket();
               }
-            }, 3000);
+            }, 3000 * connectionAttempts); // Exponential backoff
           } else if (connectionAttempts >= maxRetries) {
             console.error("Max reconnection attempts reached");
             setConnectionError(true);
+            setLoading(false);
+          } else {
+            console.log("Connection closed - not attempting to reconnect");
             setLoading(false);
           }
         };
 
         ws.onerror = (error) => {
           clearTimeout(connectionTimeout);
-          console.error("WebSocket Error:", error);
+          console.error("WebSocket Error:", {
+            type: error.type,
+            target: (error.target as WebSocket)?.url || 'Unknown URL',
+            readyState: (error.target as WebSocket)?.readyState,
+            timestamp: new Date().toISOString()
+          });
           setConnectionError(true);
+          
+          // Don't attempt reconnection if it's a persistent connection error
+          if (connectionAttempts >= 2) {
+            console.error("Multiple connection failures detected, stopping reconnection attempts");
+            setLoading(false);
+            isCleanedUp = true;
+          }
         };
 
       } catch (error) {
