@@ -231,6 +231,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
       className="fixed left-0 top-0 bottom-0 z-50 lg:relative lg:left-auto lg:top-auto lg:bottom-auto"
       style={{ 
         padding: '5px',
+        pointerEvents: isExpanded ? 'auto' : 'none'
       }}
     >
       <motion.div
