@@ -18,24 +18,6 @@ import {
   SearchIcon
 } from '@/components/icons';
 import { inter, outfit, manrope, spaceGrotesk } from '@/lib/font';
-import { motion, AnimatePresence } from "framer-motion";
-import { useSocket } from '@/context/socket-context';
-import { useUserStore } from '@/store/userStore';
-import { useAudio, useAudioStore } from '@/store/audioStore';
-import { Button } from '@/app/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
-import { Badge } from '@/app/components/ui/badge';
-import { PiArrowFatLineUpFill } from "react-icons/pi";
-import { LuArrowBigUpDash } from "react-icons/lu";
-import { 
-  PlayIcon, 
-  DeleteIcon, 
-  NextIcon,
-  UsersIcon,
-  TimeIcon,
-  PlayListIcon,
-  SearchIcon
-} from '@/components/icons';
 
 interface QueueItem {
   id: string;
