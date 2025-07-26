@@ -285,6 +285,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
           <div className="flex items-center justify-center gap-2">
             <button
               onClick={handleClick(playPrev)}
+              style={{ touchAction: 'manipulation' }}
               className={`p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className}`}
               title="Previous"
             >
@@ -298,6 +299,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 const newTime = Math.max(0, progress - 10);
                 seek(newTime);
               })}
+              style={{ touchAction: 'manipulation' }}
               className={`p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className}`}
               title="Back 10s"
             >
@@ -308,6 +310,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
             <button
               onClick={handleClick(handleTogglePlayPause)}
+              style={{ touchAction: 'manipulation' }}
               className={`text-black p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[48px] min-h-[48px] active:scale-95 ${outfit.className} font-medium`}
               title={isPlaying ? "Pause" : "Play"}
             >
@@ -327,6 +330,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 const newTime = Math.min(duration, progress + 10);
                 seek(newTime);
               })}
+              style={{ touchAction: 'manipulation' }}
               className={`p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className}`}
               title="Forward 10s"
             >
@@ -337,6 +341,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
             <button
               onClick={handleClick(playNext)}
+              style={{ touchAction: 'manipulation' }}
               className={`p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className}`}
               title="Next"
             >
@@ -368,6 +373,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
           <div className="flex items-center gap-2 mx-6 justify-center">
             <button
               onClick={handleClick(playPrev)}
+              style={{ touchAction: 'manipulation' }}
               className={`p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className}`}
               title="Previous (Ctrl + ←)"
             >
@@ -381,6 +387,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 const newTime = Math.max(0, progress - 10);
                 seek(newTime);
               })}
+              style={{ touchAction: 'manipulation' }}
               className={`p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className}`}
               title="Back 10 seconds"
             >
@@ -391,6 +398,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
             <button
               onClick={handleClick(handleTogglePlayPause)}
+              style={{ touchAction: 'manipulation' }}
               className={`text-black p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[56px] min-h-[56px] active:scale-95 ${outfit.className} font-medium`}
               title={isPlaying ? "Pause (Space)" : "Play (Space)"}
             >
@@ -410,6 +418,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 const newTime = Math.min(duration, progress + 10);
                 seek(newTime);
               })}
+              style={{ touchAction: 'manipulation' }}
               className={`p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className}`}
               title="Forward 10 seconds"
             >
@@ -420,6 +429,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
             <button
               onClick={handleClick(playNext)}
+              style={{ touchAction: 'manipulation' }}
               className={`p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className}`}
               title="Next (Ctrl + →)"
             >
@@ -498,8 +508,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
           }
         }
 
-        /* Prevent text selection on all interactive elements */
-        * {
+        /* Prevent text selection on interactive elements */
+        button, [data-progress-bar] {
           -webkit-tap-highlight-color: transparent;
         }
         

@@ -187,6 +187,7 @@ const UpvoteButton = ({
         onClick={handleVoteClick}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.9 }}
+        style={{ touchAction: 'manipulation' }}
         className={`relative flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl transition-all duration-300 backdrop-blur-xl border-2 shadow-xl overflow-hidden min-w-[44px] min-h-[44px] ${outfit.className} font-medium ${
           isVoted 
             ? 'bg-blue-500/20 text-blue-400 border-blue-500/40 shadow-lg shadow-blue-500/20 ring-1 ring-blue-400/30' 
@@ -964,8 +965,8 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
         will-change: transform;
       }
       
-      /* Prevent accidental zoom on double tap */
-      * {
+      /* Prevent accidental zoom on double tap for specific elements only */
+      button, [role="button"], .group {
         touch-action: manipulation !important;
       }
     `}</style>
