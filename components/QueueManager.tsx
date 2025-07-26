@@ -150,7 +150,8 @@ const UpvoteButton = ({
   const [animationTrigger, setAnimationTrigger] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const handleClick = (e: any) => {
+  // Simple click handler that works on both desktop and mobile
+  const handleVoteClick = (e: any) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -163,12 +164,6 @@ const UpvoteButton = ({
     setTimeout(() => setShowSuccess(false), 2000);
     
     onClick(e);
-  };
-
-  const handleTouchStart = (e: any) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleClick(e);
   };
   
   return (
@@ -189,8 +184,7 @@ const UpvoteButton = ({
       </AnimatePresence>
 
       <motion.button
-        onClick={handleClick}
-        onTouchStart={handleTouchStart}
+        onClick={handleVoteClick}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.9 }}
         className={`relative flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl transition-all duration-300 backdrop-blur-xl border-2 shadow-xl overflow-hidden min-w-[44px] min-h-[44px] ${outfit.className} font-medium ${
@@ -198,13 +192,6 @@ const UpvoteButton = ({
             ? 'bg-blue-500/20 text-blue-400 border-blue-500/40 shadow-lg shadow-blue-500/20 ring-1 ring-blue-400/30' 
             : 'bg-white/10 text-gray-300 border-white/20 hover:bg-white/15 hover:border-white/30 hover:text-white hover:shadow-2xl hover:ring-1 hover:ring-white/20'
         }`}
-        style={{ 
-          WebkitTapHighlightColor: 'transparent',
-          touchAction: 'manipulation',
-          userSelect: 'none',
-          WebkitUserSelect: 'none',
-          WebkitTouchCallout: 'none'
-        }}
       >
         {/* Ripple effect */}
         <RippleEffect trigger={animationTrigger} />
@@ -327,6 +314,7 @@ const SongCard = ({
   onRemove: () => void;
   onPlayInstant: () => void;
 }) => {
+  // Simple click handlers that work on both desktop and mobile
   const handleCardClick = (e: any) => {
     if (!isCurrentlyPlaying) {
       e.preventDefault();
@@ -335,12 +323,10 @@ const SongCard = ({
     }
   };
 
-  const handleTouchStart = (e: any) => {
-    if (!isCurrentlyPlaying) {
-      e.preventDefault();
-      e.stopPropagation();
-      onPlayInstant();
-    }
+  const handleRemoveClick = (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onRemove();
   };
 
   return (
@@ -358,7 +344,6 @@ const SongCard = ({
     >
       <Card
         onClick={handleCardClick}
-        onTouchStart={handleTouchStart}
         className={`transition-all duration-500 backdrop-blur-xl shadow-xl ${
           isCurrentlyPlaying 
             ? 'border-blue-500/40 bg-blue-900/20 shadow-2xl shadow-blue-500/25 ring-1 ring-blue-500/20' 
@@ -366,13 +351,6 @@ const SongCard = ({
         }`}
         role={!isCurrentlyPlaying ? "button" : undefined}
         tabIndex={!isCurrentlyPlaying ? 0 : undefined}
-        style={{ 
-          WebkitTapHighlightColor: 'transparent',
-          touchAction: 'manipulation',
-          userSelect: 'none',
-          WebkitUserSelect: 'none',
-          WebkitTouchCallout: 'none'
-        }}
       >
         <CardContent className="p-2 sm:p-3">
           <div className="flex items-center space-x-3 sm:space-x-4">
@@ -431,11 +409,7 @@ const SongCard = ({
                   transition={{ delay: 0.1, duration: 0.4 }}
                 >
                   <UpvoteButton
-                    onClick={(e: any) => {
-                      e?.preventDefault?.();
-                      e?.stopPropagation?.();
-                      onVote();
-                    }}
+                    onClick={onVote}
                     isVoted={hasUserVoted}
                     voteCount={item.voteCount}
                   />
@@ -464,24 +438,8 @@ const SongCard = ({
                 >
                   <Button
                     size="sm"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onRemove();
-                    }}
-                    onTouchStart={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onRemove();
-                    }}
+                    onClick={handleRemoveClick}
                     className={`px-2 sm:px-3 py-1.5 sm:py-2 bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/30 hover:border-red-500/50 backdrop-blur-xl shadow-xl ring-1 ring-red-500/20 hover:ring-red-500/30 min-w-[44px] min-h-[44px] flex items-center justify-center ${outfit.className} font-medium`}
-                    style={{ 
-                      WebkitTapHighlightColor: 'transparent',
-                      touchAction: 'manipulation',
-                      userSelect: 'none',
-                      WebkitUserSelect: 'none',
-                      WebkitTouchCallout: 'none'
-                    }}
                   >
                     <div className="text-current">
                       <DeleteIcon width={12} height={12} className="sm:w-3.5 sm:h-3.5" />
@@ -977,28 +935,11 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
         stroke: #ffffff !important;
       }
       
-      /* Enhanced mobile touch optimizations */
+      /* Simplified mobile optimizations */
       button, [role="button"] {
-        -webkit-tap-highlight-color: transparent !important;
-        touch-action: manipulation !important;
-        user-select: none !important;
-        -webkit-user-select: none !important;
-        -webkit-touch-callout: none !important;
-        -webkit-user-drag: none !important;
-        -khtml-user-select: none !important;
-        -moz-user-select: none !important;
-        -ms-user-select: none !important;
-      }
-      
-      /* Prevent text selection on cards */
-      [role="button"], .group {
-        -webkit-tap-highlight-color: transparent !important;
-        -webkit-touch-callout: none !important;
-        -webkit-user-select: none !important;
-        -khtml-user-select: none !important;
-        -moz-user-select: none !important;
-        -ms-user-select: none !important;
-        user-select: none !important;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        user-select: none;
       }
       
       /* Enhanced mobile feedback */
