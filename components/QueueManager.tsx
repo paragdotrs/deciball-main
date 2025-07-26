@@ -345,7 +345,7 @@ const SongCard = ({
     >
       <Card
         onClick={handleCardClick}
-        className={`transition-all duration-500 backdrop-blur-xl shadow-xl ${
+        className={`transition-all duration-500 backdrop-blur-xl shadow-xl w-full max-w-full queue-card ${
           isCurrentlyPlaying 
             ? 'border-blue-500/40 bg-blue-900/20 shadow-2xl shadow-blue-500/25 ring-1 ring-blue-500/20' 
             : 'bg-[#1C1E1F] cursor-pointer hover:shadow-2xl hover:shadow-black/30 hover:ring-white/10'
@@ -353,8 +353,8 @@ const SongCard = ({
         role={!isCurrentlyPlaying ? "button" : undefined}
         tabIndex={!isCurrentlyPlaying ? 0 : undefined}
       >
-        <CardContent className="p-2 sm:p-3">
-          <div className="flex items-center space-x-3 sm:space-x-4">
+        <CardContent className="p-2 sm:p-3 w-full max-w-full">
+          <div className="flex items-center space-x-3 sm:space-x-4 w-full max-w-full min-w-0">
       
             
             <motion.div 
@@ -375,12 +375,12 @@ const SongCard = ({
             </motion.div>
             
             <motion.div 
-              className="flex-1 min-w-0" 
+              className="flex-1 min-w-0 max-w-full overflow-hidden" 
               layout
               transition={{ duration: 0.6 }}
             >
               <motion.h4 
-                className={`font-semibold text-white truncate ${
+                className={`font-semibold text-white truncate w-full queue-text ${
                   isCurrentlyPlaying ? 'text-base sm:text-lg' : 'text-sm sm:text-base'
                 }`}
                 layout
@@ -389,7 +389,7 @@ const SongCard = ({
               </motion.h4>
               {item.artist && (
                 <motion.p 
-                  className="text-xs sm:text-sm text-gray-400 truncate"
+                  className="text-xs sm:text-sm text-gray-400 truncate w-full queue-text"
                   layout
                 >
                   {item.artist}
@@ -399,7 +399,7 @@ const SongCard = ({
             </motion.div>
             
             <motion.div 
-              className="flex items-center space-x-2 sm:space-x-3"
+              className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0"
               layout
               transition={{ duration: 0.6 }}
             >
@@ -752,9 +752,9 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 w-full md:w-[32rem]">
+    <div className="space-y-4 sm:space-y-6 w-full max-w-full md:w-[32rem] md:max-w-[32rem] flex-shrink-0 queue-container">
       <motion.div 
-        className="space-y-4 sm:space-y-6 w-full"
+        className="space-y-4 sm:space-y-6 w-full max-w-full"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -955,6 +955,42 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           min-height: 44px !important;
           min-width: 44px !important;
           position: relative !important;
+        }
+        
+        /* Prevent horizontal overflow on mobile */
+        .queue-container {
+          max-width: 100vw !important;
+          overflow-x: hidden !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+        }
+        
+        /* Ensure cards don't overflow */
+        .queue-card {
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+        }
+        
+        /* Prevent text overflow */
+        .queue-text {
+          word-break: break-word !important;
+          overflow-wrap: break-word !important;
+          max-width: 100% !important;
+        }
+        
+        /* Mobile specific container adjustments */
+        .queue-container * {
+          box-sizing: border-box !important;
+        }
+        
+        /* Ensure mobile containers don't squeeze */
+        .queue-container .space-y-4 {
+          width: 100% !important;
+          max-width: 100% !important;
         }
       }
 

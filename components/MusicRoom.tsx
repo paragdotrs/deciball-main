@@ -543,7 +543,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
               <div className="w-full max-w-[95%] sm:max-w-[400px] md:max-w-[98rem] mx-auto h-full">
                 <div className="flex flex-col md:flex-row md:flex gap-4 md:justify-between h-full min-h-[calc(100vh-200px)]">
                   {/* Left Column */}
-                  <div className="flex flex-col gap-4 order-1 md:order-1 w-full md:w-auto ml-2 md:ml-0">
+                  <div className="flex flex-col gap-4 order-1 md:order-1 w-full md:w-auto ml-0 md:ml-0">
                     <BlurComponent 
                       delay={500} 
                       direction="top"
@@ -576,8 +576,8 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                       />
                     </BlurComponent>
                   </div>
-                  {/* Right Column */}
-                  <div className="w-full md:min-w-[625px] order-2 md:order-2 ml-2 md:ml-0">
+                  {/* Right Column - QueueManager */}
+                  <div className="w-full md:min-w-[625px] order-2 md:order-2 ml-0 md:ml-0 overflow-hidden">
                     <BlurComponent
                       delay={600}
                       direction="top"
@@ -585,7 +585,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                       stepDuration={0.4}
                     >
                       {showQueue && (
-                        <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-4 sm:p-6 h-full min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] w-full">
+                        <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-3 sm:p-4 md:p-6 h-full min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] w-full max-w-full overflow-hidden">
                           <QueueManager 
                             spaceId={spaceId} 
                             isAdmin={isAdmin}
