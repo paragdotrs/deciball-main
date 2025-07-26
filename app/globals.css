@@ -30,6 +30,68 @@ body {
   color: white;
 }
 
+/* Enhanced Mobile Touch Optimization */
+* {
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Allow text selection only where needed */
+input, textarea, [contenteditable] {
+  -webkit-user-select: text !important;
+  -khtml-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Ensure all buttons and interactive elements work on mobile */
+button, [role="button"], [onClick], [onTouchStart] {
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: transparent !important;
+  cursor: pointer !important;
+  -webkit-user-select: none !important;
+  -khtml-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Prevent zoom on mobile inputs */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* Enhanced click target size for mobile */
+@media (max-width: 640px) {
+  button, [role="button"] {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+}
+
+/* Force hardware acceleration */
+button, [role="button"], .motion-element {
+  transform: translateZ(0) !important;
+  -webkit-transform: translateZ(0) !important;
+  will-change: transform !important;
+}
+
+/* Better tap feedback */
+button:active, [role="button"]:active {
+  transform: scale(0.95) translateZ(0) !important;
+  transition: transform 0.1s ease !important;
+}
+
+/* Prevent text selection on interactive elements */
+.group, .motion-div, [class*="motion-"] {
+  -webkit-user-select: none !important;
+  -khtml-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
 @layer base {
   body {
     background: hsl(var(--background));

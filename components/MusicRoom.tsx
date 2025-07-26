@@ -21,6 +21,7 @@ import { ElectronDetector } from './ElectronDetector';
 import HalftoneWavesBackground from './Background';
 import BlurText, { BlurComponent } from './ui/BlurEffects';
 import { RecommendationPanel } from './RecommendationPanel';
+import { lexend, poppins, signikaNegative, inter, manrope, spaceGrotesk, jetBrainsMono, outfit } from '@/lib/font';
 
 interface MusicRoomProps {
   spaceId: string;
@@ -295,7 +296,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin w-12 h-12 border-4 border-gray-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className="text-lg text-gray-200">Connecting to music room...</p>
+            <p className={`text-lg text-gray-200 ${inter.className}`}>Connecting to music room...</p>
           </div>
         </div>
       </HalftoneWavesBackground>
@@ -334,7 +335,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                   <BlurText 
                     text={roomName} 
                     animateBy="words"
-                    className="text-lg font-bold text-white text-center"
+                    className={`text-lg font-bold text-white text-center ${spaceGrotesk.className}`}
                     delay={150}
                     direction="top"
                   />
@@ -349,23 +350,23 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                             alt={String(session?.user?.name || session?.user?.username || 'User')} 
                             className="object-cover"
                           />
-                          <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold text-sm">
+                          <AvatarFallback className={`bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold text-sm ${outfit.className}`}>
                             {getUserInitials()}
                           </AvatarFallback>
                         </Avatar>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56 bg-black/90 border-white/20 backdrop-blur-xl" align="end" forceMount>
-                      <DropdownMenuLabel className="font-normal">
+                      <DropdownMenuLabel className={`font-normal ${inter.className}`}>
                         <div className="flex flex-col space-y-1">
-                          <p className="text-sm font-medium leading-none text-white">
+                          <p className={`text-sm font-medium leading-none text-white ${manrope.className}`}>
                             {session?.user?.name || session?.user?.username || 'User'}
                           </p>
-                          <p className="text-xs leading-none text-gray-400">
+                          <p className={`text-xs leading-none text-gray-400 ${jetBrainsMono.className} font-mono`}>
                             {session?.user?.email}
                           </p>
                           <div className="flex items-center gap-2 mt-2">
-                            <Badge variant={isAdmin ? 'default' : 'secondary'} className="text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0">
+                            <Badge variant={isAdmin ? 'default' : 'secondary'} className={`text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0 ${outfit.className} font-medium`}>
                               {isAdmin ? 'Admin' : 'Listener'}
                             </Badge>
                           </div>
@@ -373,26 +374,26 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator className="bg-white/20" />
                       <DropdownMenuItem 
-                        className="text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                        className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
                         onClick={() => router.push('/profile')}
                       >
                         <User className="mr-2 h-4 w-4" />
-                        <span>Profile</span>
+                        <span className={`${outfit.className} font-medium`}>Profile</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem 
-                        className="text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                        className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
                         onClick={() => router.push('/settings')}
                       >
                         <Settings className="mr-2 h-4 w-4" />
-                        <span>Settings</span>
+                        <span className={`${outfit.className} font-medium`}>Settings</span>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="bg-white/20" />
                       <DropdownMenuItem 
-                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer"
+                        className={`text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer ${inter.className}`}
                         onClick={handleLogout}
                       >
                         <LogOut className="mr-2 h-4 w-4" />
-                        <span>Log out</span>
+                        <span className={`${outfit.className} font-medium text-red-400`}>Log out</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -405,18 +406,19 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                   <BlurText 
                     text={roomName} 
                     animateBy="words"
-                    className="text-base sm:text-lg md:text-xl font-bold text-white text-left truncate flex-1 sm:flex-none"
+                    className={`text-base sm:text-lg md:text-xl font-bold text-white text-left truncate flex-1 sm:flex-none ${spaceGrotesk.className}`}
                     delay={150}
                     direction="top"
                   />
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge 
+                    {/* Connection Status Badge with monospace font for technical info */}
+                    {/* <Badge 
                       variant={
                         loading ? 'secondary' :
                         connectionError ? 'destructive' :
                         socket?.readyState === WebSocket.OPEN ? 'default' : 'secondary'
                       }
-                      className="flex items-center gap-1 sm:gap-1.5 bg-black/30 border-white/20 text-gray-200 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs"
+                      className={`flex items-center gap-1 sm:gap-1.5 bg-black/30 border-white/20 text-gray-200 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs ${jetBrainsMono.className}`}
                     >
                       <div 
                         className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${
@@ -435,7 +437,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                          connectionError ? '!' :
                          socket?.readyState === WebSocket.OPEN ? '●' : '○'}
                       </span>
-                    </Badge>
+                    </Badge> */}
                   </div>
                 </div>
                 
@@ -445,7 +447,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                       console.log('Song selected:', track.name);
                     }}
                     onBatchSelect={handleBatchAddToQueue}
-                    buttonClassName="w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-3 sm:px-4 md:px-6 py-2 sm:py-2 md:py-2.5 backdrop-blur-sm transition-all duration-300 text-xs sm:text-sm md:text-base"
+                    buttonClassName={`w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-3 sm:px-4 md:px-6 py-2 sm:py-2 md:py-2.5 backdrop-blur-sm transition-all duration-300 text-xs sm:text-sm md:text-base ${inter.className}`}
                     maxResults={12}
                     isAdmin={true}
                     enableBatchSelection={true}
@@ -463,23 +465,23 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                             alt={String(session?.user?.name || session?.user?.username || 'User')} 
                             className="object-cover"
                           />
-                          <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold">
+                          <AvatarFallback className={`bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold ${outfit.className}`}>
                             {getUserInitials()}
                           </AvatarFallback>
                         </Avatar>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56 bg-black/90 border-white/20 backdrop-blur-xl" align="end" forceMount>
-                      <DropdownMenuLabel className="font-normal">
+                      <DropdownMenuLabel className={`font-normal ${inter.className}`}>
                         <div className="flex flex-col space-y-1">
-                          <p className="text-sm font-medium leading-none text-white">
+                          <p className={`text-sm font-medium leading-none text-white ${manrope.className}`}>
                             {session?.user?.name || session?.user?.username || 'User'}
                           </p>
-                          <p className="text-xs leading-none text-gray-400">
+                          <p className={`text-xs leading-none text-gray-400 ${jetBrainsMono.className} font-mono`}>
                             {session?.user?.email}
                           </p>
                           <div className="flex items-center gap-2 mt-2">
-                            <Badge variant={isAdmin ? 'default' : 'secondary'} className="text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0">
+                            <Badge variant={isAdmin ? 'default' : 'secondary'} className={`text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0 ${outfit.className} font-medium`}>
                               {isAdmin ? 'Admin' : 'Listener'}
                             </Badge>
                           </div>
@@ -487,26 +489,26 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator className="bg-white/20" />
                       <DropdownMenuItem 
-                        className="text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                        className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
                         onClick={() => router.push('/profile')}
                       >
                         <User className="mr-2 h-4 w-4" />
-                        <span>Profile</span>
+                        <span className={`${outfit.className} font-medium`}>Profile</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem 
-                        className="text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                        className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
                         onClick={() => router.push('/settings')}
                       >
                         <Settings className="mr-2 h-4 w-4" />
-                        <span>Settings</span>
+                        <span className={`${outfit.className} font-medium`}>Settings</span>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="bg-white/20" />
                       <DropdownMenuItem 
-                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer"
+                        className={`text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer ${inter.className}`}
                         onClick={handleLogout}
                       >
                         <LogOut className="mr-2 h-4 w-4" />
-                        <span>Log out</span>
+                        <span className={`${outfit.className} font-medium text-red-400`}>Log out</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -520,7 +522,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                     console.log('Song selected:', track.name);
                   }}
                   onBatchSelect={handleBatchAddToQueue}
-                  buttonClassName="w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-4 py-2.5 backdrop-blur-sm transition-all duration-300 text-sm"
+                  buttonClassName={`w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-4 py-2.5 backdrop-blur-sm transition-all duration-300 text-sm ${inter.className}`}
                   maxResults={12}
                   isAdmin={true}
                   enableBatchSelection={true}

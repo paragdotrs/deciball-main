@@ -17,6 +17,25 @@ import {
   PlayListIcon,
   SearchIcon
 } from '@/components/icons';
+import { inter, outfit, manrope, spaceGrotesk } from '@/lib/font';
+import { motion, AnimatePresence } from "framer-motion";
+import { useSocket } from '@/context/socket-context';
+import { useUserStore } from '@/store/userStore';
+import { useAudio, useAudioStore } from '@/store/audioStore';
+import { Button } from '@/app/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { Badge } from '@/app/components/ui/badge';
+import { PiArrowFatLineUpFill } from "react-icons/pi";
+import { LuArrowBigUpDash } from "react-icons/lu";
+import { 
+  PlayIcon, 
+  DeleteIcon, 
+  NextIcon,
+  UsersIcon,
+  TimeIcon,
+  PlayListIcon,
+  SearchIcon
+} from '@/components/icons';
 
 interface QueueItem {
   id: string;
@@ -150,6 +169,9 @@ const UpvoteButton = ({
   const [showSuccess, setShowSuccess] = useState(false);
 
   const handleClick = (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     // Trigger particle animation
     setAnimationTrigger(true);
     setShowSuccess(true);
@@ -159,6 +181,12 @@ const UpvoteButton = ({
     setTimeout(() => setShowSuccess(false), 2000);
     
     onClick(e);
+  };
+
+  const handleTouchStart = (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleClick(e);
   };
   
   return (
@@ -180,13 +208,21 @@ const UpvoteButton = ({
 
       <motion.button
         onClick={handleClick}
+        onTouchStart={handleTouchStart}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.9 }}
-        className={`relative flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl transition-all duration-300 backdrop-blur-xl border-2 shadow-xl overflow-hidden ${
+        className={`relative flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl transition-all duration-300 backdrop-blur-xl border-2 shadow-xl overflow-hidden min-w-[44px] min-h-[44px] ${outfit.className} font-medium ${
           isVoted 
             ? 'bg-blue-500/20 text-blue-400 border-blue-500/40 shadow-lg shadow-blue-500/20 ring-1 ring-blue-400/30' 
             : 'bg-white/10 text-gray-300 border-white/20 hover:bg-white/15 hover:border-white/30 hover:text-white hover:shadow-2xl hover:ring-1 hover:ring-white/20'
         }`}
+        style={{ 
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none'
+        }}
       >
         {/* Ripple effect */}
         <RippleEffect trigger={animationTrigger} />
@@ -309,6 +345,22 @@ const SongCard = ({
   onRemove: () => void;
   onPlayInstant: () => void;
 }) => {
+  const handleCardClick = (e: any) => {
+    if (!isCurrentlyPlaying) {
+      e.preventDefault();
+      e.stopPropagation();
+      onPlayInstant();
+    }
+  };
+
+  const handleTouchStart = (e: any) => {
+    if (!isCurrentlyPlaying) {
+      e.preventDefault();
+      e.stopPropagation();
+      onPlayInstant();
+    }
+  };
+
   return (
     <motion.div
       layout
@@ -323,14 +375,22 @@ const SongCard = ({
       className="group"
     >
       <Card
-        onClick={!isCurrentlyPlaying ? onPlayInstant : undefined}
-        className={`transition-all duration-500 backdrop-blur-xl  shadow-xl ${
+        onClick={handleCardClick}
+        onTouchStart={handleTouchStart}
+        className={`transition-all duration-500 backdrop-blur-xl shadow-xl ${
           isCurrentlyPlaying 
             ? 'border-blue-500/40 bg-blue-900/20 shadow-2xl shadow-blue-500/25 ring-1 ring-blue-500/20' 
-            : 'bg-[#1C1E1F]   cursor-pointer hover:shadow-2xl hover:shadow-black/30  hover:ring-white/10'
+            : 'bg-[#1C1E1F] cursor-pointer hover:shadow-2xl hover:shadow-black/30 hover:ring-white/10'
         }`}
         role={!isCurrentlyPlaying ? "button" : undefined}
         tabIndex={!isCurrentlyPlaying ? 0 : undefined}
+        style={{ 
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none'
+        }}
       >
         <CardContent className="p-2 sm:p-3">
           <div className="flex items-center space-x-3 sm:space-x-4">
@@ -390,6 +450,7 @@ const SongCard = ({
                 >
                   <UpvoteButton
                     onClick={(e: any) => {
+                      e?.preventDefault?.();
                       e?.stopPropagation?.();
                       onVote();
                     }}
@@ -422,10 +483,23 @@ const SongCard = ({
                   <Button
                     size="sm"
                     onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
                       onRemove();
                     }}
-                    className="px-2 sm:px-3 py-1.5 sm:py-2 bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/30 hover:border-red-500/50 backdrop-blur-xl shadow-xl ring-1 ring-red-500/20 hover:ring-red-500/30"
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onRemove();
+                    }}
+                    className={`px-2 sm:px-3 py-1.5 sm:py-2 bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/30 hover:border-red-500/50 backdrop-blur-xl shadow-xl ring-1 ring-red-500/20 hover:ring-red-500/30 min-w-[44px] min-h-[44px] flex items-center justify-center ${outfit.className} font-medium`}
+                    style={{ 
+                      WebkitTapHighlightColor: 'transparent',
+                      touchAction: 'manipulation',
+                      userSelect: 'none',
+                      WebkitUserSelect: 'none',
+                      WebkitTouchCallout: 'none'
+                    }}
                   >
                     <div className="text-current">
                       <DeleteIcon width={12} height={12} className="sm:w-3.5 sm:h-3.5" />
@@ -919,6 +993,57 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       }
       button:hover .text-white svg path {
         stroke: #ffffff !important;
+      }
+      
+      /* Enhanced mobile touch optimizations */
+      button, [role="button"] {
+        -webkit-tap-highlight-color: transparent !important;
+        touch-action: manipulation !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+        -webkit-touch-callout: none !important;
+        -webkit-user-drag: none !important;
+        -khtml-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+      }
+      
+      /* Prevent text selection on cards */
+      [role="button"], .group {
+        -webkit-tap-highlight-color: transparent !important;
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        -khtml-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+        user-select: none !important;
+      }
+      
+      /* Enhanced mobile feedback */
+      button:active, [role="button"]:active {
+        transform: scale(0.95) !important;
+        transition: transform 0.1s ease !important;
+      }
+      
+      /* Ensure minimum touch targets */
+      @media (max-width: 640px) {
+        button {
+          min-height: 44px !important;
+          min-width: 44px !important;
+          position: relative !important;
+        }
+      }
+
+      /* Force hardware acceleration for smoother animations */
+      button, [role="button"], .group {
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+        will-change: transform;
+      }
+      
+      /* Prevent accidental zoom on double tap */
+      * {
+        touch-action: manipulation !important;
       }
     `}</style>
   </div>

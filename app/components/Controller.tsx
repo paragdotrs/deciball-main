@@ -16,6 +16,7 @@ import {
 } from '@/components/icons';
 import { useAudio } from '@/store/audioStore';
 import VolumeBar from '@/components/VolumeBar';
+import { inter, outfit } from '@/lib/font';
 
 interface AudioControllerProps {
   customTogglePlayPause?: () => void;
@@ -64,6 +65,13 @@ const AudioController: React.FC<AudioControllerProps> = ({
     e.stopPropagation();
     console.log('[AudioController] Play/Pause button clicked/touched');
     handleTogglePlayPause();
+  };
+
+  // Improved touch handling for mobile
+  const handleTouchClick = (callback: () => void) => (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    callback();
   };
 
   const [isDragging, setIsDragging] = useState(false);
@@ -276,10 +284,15 @@ const AudioController: React.FC<AudioControllerProps> = ({
           {/* Main Controls Row */}
           <div className="flex items-center justify-center gap-2">
             <button
-              onClick={playPrev}
-              className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
+              onClick={handleTouchClick(playPrev)}
+              onTouchStart={handleTouchClick(playPrev)}
+              className={`p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className}`}
               title="Previous"
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                userSelect: 'none'
+              }}
             >
               <div className="text-current">
                 <PreviousIcon width={16} height={16} />
@@ -287,13 +300,21 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
 
             <button
-              onClick={() => {
+              onClick={handleTouchClick(() => {
                 const newTime = Math.max(0, progress - 10);
                 seek(newTime);
-              }}
-              className="p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
+              })}
+              onTouchStart={handleTouchClick(() => {
+                const newTime = Math.max(0, progress - 10);
+                seek(newTime);
+              })}
+              className={`p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className}`}
               title="Back 10s"
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                userSelect: 'none'
+              }}
             >
               <div className="text-current">
                 <BackTenSecondIcon width={14} height={14} />
@@ -302,10 +323,14 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
             <button
               onClick={handlePlayPauseClick}
-              onTouchEnd={handlePlayPauseClick}
-              className="text-black p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[48px] min-h-[48px] active:scale-95"
+              onTouchStart={handlePlayPauseClick}
+              className={`text-black p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[48px] min-h-[48px] active:scale-95 ${outfit.className} font-medium`}
               title={isPlaying ? "Pause" : "Play"}
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                userSelect: 'none'
+              }}
             >
               {isPlaying ? (
                 <div className="text-black">
@@ -319,13 +344,21 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
 
             <button
-              onClick={() => {
+              onClick={handleTouchClick(() => {
                 const newTime = Math.min(duration, progress + 10);
                 seek(newTime);
-              }}
-              className="p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
+              })}
+              onTouchStart={handleTouchClick(() => {
+                const newTime = Math.min(duration, progress + 10);
+                seek(newTime);
+              })}
+              className={`p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className}`}
               title="Forward 10s"
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                userSelect: 'none'
+              }}
             >
               <div className="text-current">
                 <ForwardTenSecondIcon width={14} height={14} />
@@ -333,10 +366,15 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
 
             <button
-              onClick={playNext}
-              className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
+              onClick={handleTouchClick(playNext)}
+              onTouchStart={handleTouchClick(playNext)}
+              className={`p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className}`}
               title="Next"
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                userSelect: 'none'
+              }}
             >
               <div className="text-current">
                 <NextIcon width={16} height={16} />
@@ -350,9 +388,14 @@ const AudioController: React.FC<AudioControllerProps> = ({
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               onClick={() => setIsLiked(!isLiked)}
-              className={`p-1 rounded-full transition-colors ${
+              className={`p-1 rounded-full transition-colors ${inter.className} ${
                 isLiked ? 'text-red-500 hover:text-red-400' : 'text-gray-400 hover:text-white'
               }`}
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                userSelect: 'none'
+              }}
             >
               <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
             </button>
@@ -360,10 +403,15 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
           <div className="flex items-center gap-2 mx-6 justify-center">
             <button
-              onClick={playPrev}
-              className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
+              onClick={handleTouchClick(playPrev)}
+              onTouchStart={handleTouchClick(playPrev)}
+              className={`p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className}`}
               title="Previous (Ctrl + ←)"
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                userSelect: 'none'
+              }}
             >
               <div className="text-current">
                 <PreviousIcon width={20} height={20} />
@@ -371,13 +419,21 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
 
             <button
-              onClick={() => {
+              onClick={handleTouchClick(() => {
                 const newTime = Math.max(0, progress - 10);
                 seek(newTime);
-              }}
-              className="p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
+              })}
+              onTouchStart={handleTouchClick(() => {
+                const newTime = Math.max(0, progress - 10);
+                seek(newTime);
+              })}
+              className={`p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className}`}
               title="Back 10 seconds"
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                userSelect: 'none'
+              }}
             >
               <div className="text-current">
                 <BackTenSecondIcon width={16} height={16} />
@@ -386,10 +442,14 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
             <button
               onClick={handlePlayPauseClick}
-              onTouchEnd={handlePlayPauseClick}
-              className="text-black p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[56px] min-h-[56px] active:scale-95"
+              onTouchStart={handlePlayPauseClick}
+              className={`text-black p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[56px] min-h-[56px] active:scale-95 ${outfit.className} font-medium`}
               title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                userSelect: 'none'
+              }}
             >
               {isPlaying ? (
                 <div className="text-black">
@@ -403,13 +463,21 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
 
             <button
-              onClick={() => {
+              onClick={handleTouchClick(() => {
                 const newTime = Math.min(duration, progress + 10);
                 seek(newTime);
-              }}
-              className="p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
+              })}
+              onTouchStart={handleTouchClick(() => {
+                const newTime = Math.min(duration, progress + 10);
+                seek(newTime);
+              })}
+              className={`p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className}`}
               title="Forward 10 seconds"
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                userSelect: 'none'
+              }}
             >
               <div className="text-current">
                 <ForwardTenSecondIcon width={16} height={16} />
@@ -417,10 +485,15 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
 
             <button
-              onClick={playNext}
-              className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95"
+              onClick={handleTouchClick(playNext)}
+              onTouchStart={handleTouchClick(playNext)}
+              className={`p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className}`}
               title="Next (Ctrl + →)"
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+              style={{ 
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                userSelect: 'none'
+              }}
             >
               <div className="text-current">
                 <NextIcon width={20} height={20} />
@@ -463,17 +536,23 @@ const AudioController: React.FC<AudioControllerProps> = ({
         
         /* Mobile touch optimizations */
         button {
-          -webkit-tap-highlight-color: transparent;
-          touch-action: manipulation;
-          user-select: none;
-          -webkit-user-select: none;
+          -webkit-tap-highlight-color: transparent !important;
+          touch-action: manipulation !important;
+          user-select: none !important;
+          -webkit-user-select: none !important;
+          -webkit-touch-callout: none !important;
+          -webkit-user-drag: none !important;
+          -khtml-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
         }
         
         /* Progress bar touch optimizations */
         [data-progress-bar] {
-          touch-action: none;
-          user-select: none;
-          -webkit-user-select: none;
+          touch-action: none !important;
+          user-select: none !important;
+          -webkit-user-select: none !important;
+          -webkit-touch-callout: none !important;
         }
         
         .text-black svg path {
@@ -490,17 +569,31 @@ const AudioController: React.FC<AudioControllerProps> = ({
           stroke: currentColor !important;
         }
         
-        /* Active state for better mobile feedback */
+        /* Enhanced mobile feedback */
         button:active {
-          transform: scale(0.95);
+          transform: scale(0.95) !important;
+          transition: transform 0.1s ease !important;
         }
         
-        /* Larger touch targets for mobile */
+        /* Ensure minimum touch targets */
         @media (max-width: 640px) {
           button {
-            min-height: 44px;
-            min-width: 44px;
+            min-height: 44px !important;
+            min-width: 44px !important;
+            position: relative !important;
           }
+        }
+
+        /* Prevent text selection on all interactive elements */
+        * {
+          -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Force hardware acceleration for smoother animations */
+        button, [data-progress-bar] {
+          transform: translateZ(0);
+          -webkit-transform: translateZ(0);
+          will-change: transform;
         }
       `}</style>
     </div>
