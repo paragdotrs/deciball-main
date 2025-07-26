@@ -271,3 +271,22 @@ button:active, [role="button"]:active {
   }
 }
 */
+
+/* Mobile Touch Optimization - Ensure main content has proper touch handling */
+@media (max-width: 767px) {
+  /* Ensure main content area has proper touch handling */
+  .music-room-main-content {
+    touch-action: manipulation !important;
+    pointer-events: auto !important;
+    z-index: 999 !important;
+    position: relative !important;
+  }
+  
+  /* Force all interactive elements to be touchable */
+  button, [role="button"], [data-testid*="button"], [onclick], [onTouchStart] {
+    touch-action: manipulation !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 1000 !important;
+  }
+}

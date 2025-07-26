@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '@/context/socket-context';
 import { useUserStore } from '@/store/userStore';
+import { useIsMobile } from '@/app/hooks/use-mobile';
 import { useAudio } from '@/store/audioStore';
 import { QueueManager } from './QueueManager';
 import { Player } from './Player';
@@ -33,6 +34,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   const { setVolume,  setCurrentSpaceId } = useAudio();
   const { sendMessage, socket, loading, connectionError } = useSocket();
   const router = useRouter();
+  const isMobile = useIsMobile();
   
   const [isAdmin, setIsAdmin] = useState(false);
   const [connectedUsers, setConnectedUsers] = useState(0);
@@ -305,27 +307,32 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
 
   return (
     <HalftoneWavesBackground>
-      <div className="flex min-h-screen text-white">
+      <div className="flex min-h-screen text-white relative">
         {/* <DiscordPresence /> */}
         
         <ElectronDetector />
         
-        <div className="flex-shrink-0">
-          <SidebarProvider>
-            <ListenerSidebar 
-              listeners={userDetails.length > 0 ? userDetails : [
-                ...Array.from({ length: connectedUsers }, (_, i) => ({
-                  userId: `user-${i}`,
-                  isCreator: i === 0,
-                  name: i === 0 ? 'Room Creator' : `Listener ${i}`,
-                  imageUrl: ''
-                }))
-              ]} 
-            />
-          </SidebarProvider>
-        </div>
+        {/* Sidebar - Only render on desktop, completely hidden on mobile */}
+        {!isMobile && (
+          <div className="flex-shrink-0 relative z-10">
+            <SidebarProvider>
+              <ListenerSidebar 
+                listeners={userDetails.length > 0 ? userDetails : [
+                  ...Array.from({ length: connectedUsers }, (_, i) => ({
+                    userId: `user-${i}`,
+                    isCreator: i === 0,
+                    name: i === 0 ? 'Room Creator' : `Listener ${i}`,
+                    imageUrl: ''
+                  }))
+                ]} 
+              />
+            </SidebarProvider>
+          </div>
+        )}
 
-        <div className="flex-1 flex flex-col min-w-0 relative">
+        {/* Main content with proper positioning */}
+        <div className="flex-1 flex flex-col min-w-0 relative z-20 touch-auto music-room-main-content"
+             style={{ isolation: 'isolate' }}>
           <div className="flex items-center justify-center p-2 sm:p-3 md:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 md:gap-8 bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl px-3 sm:px-6 md:px-12 py-3 sm:py-3 md:py-4 shadow-2xl w-full max-w-[95%] sm:max-w-[400px] md:min-w-[900px] md:max-w-5xl">
               
