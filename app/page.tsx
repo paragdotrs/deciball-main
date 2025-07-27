@@ -33,6 +33,7 @@ export default function Page() {
   const [showPastSpaces, setShowPastSpaces] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [showSignInDialog, setShowSignInDialog] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -40,13 +41,30 @@ export default function Page() {
     try {
       setLoading(true);
       const response = await axios.get('/api/spaces');
-      setSpaces(response.data.spaces || []);
+      const fetchedSpaces = response.data.spaces || [];
+      setSpaces(fetchedSpaces);
+      
+      // If this is the initial load and user has spaces, show them
+      if (initialLoad && fetchedSpaces.length > 0) {
+        setShowPastSpaces(true);
+      }
+      setInitialLoad(false);
     } catch (error) {
       console.error('Error fetching spaces:', error);
+      setInitialLoad(false);
     } finally {
       setLoading(false);
     }
   };
+
+  // Auto-fetch spaces when user is authenticated
+  useEffect(() => {
+    if (status === 'authenticated' && initialLoad) {
+      fetchSpaces();
+    } else if (status !== 'loading' && status !== 'authenticated') {
+      setInitialLoad(false);
+    }
+  }, [status, initialLoad]);
 
   const handleCreateSpace = async () => {
     if (!spaceName.trim()) return;
@@ -83,7 +101,13 @@ export default function Page() {
     }
     
     setShowPastSpaces(true);
-    fetchSpaces();
+    if (spaces.length === 0) {
+      fetchSpaces();
+    }
+  };
+
+  const handleCreateNewSpace = () => {
+    setShowPastSpaces(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -109,8 +133,20 @@ export default function Page() {
       </div>
       
       <div className="relative z-10 min-h-screen">
-        <AnimatePresence mode="wait">
-          {!showPastSpaces ? (
+        {/* Show loading during initial authentication and space fetch */}
+        {(status === 'loading' || (status === 'authenticated' && initialLoad)) && (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
+              <p className="text-white text-lg">Loading your spaces...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Main content when not loading */}
+        {status !== 'loading' && !initialLoad && (
+          <AnimatePresence mode="wait">
+            {!showPastSpaces ? (
             <motion.div
               key="onboarding"
               initial={{ opacity: 0 }}
@@ -252,10 +288,10 @@ export default function Page() {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowPastSpaces(false)}
+                    onClick={handleCreateNewSpace}
                     className="text-zinc-400 hover:text-cyan-400 transition-colors duration-300 mb-3 xs:mb-4 sm:mb-6 inline-flex items-center gap-2 text-xs xs:text-sm sm:text-base"
                   >
-                    ← Back to Create
+                    ← Create New Space
                   </motion.button>
                   
                   <motion.h1
@@ -296,45 +332,65 @@ export default function Page() {
                     </Button>
                   </motion.div>
                 ) : (
-                  <div className="grid grid-cols-1 xs:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 xs:gap-4 sm:gap-6">
-                    {spaces.map((space, index) => (
-                      <motion.div
-                        key={space.id}
-                        variants={cardVariants}
-                        initial="hidden"
-                        animate="visible"
-                        transition={{ duration: 0.5, delay: index * 0.1 }}
+                  <div>
+                    {/* Create New Space Button */}
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-center mb-6 xs:mb-8 sm:mb-10"
+                    >
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleCreateNewSpace}
+                        className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white px-6 xs:px-8 sm:px-10 py-3 xs:py-4 sm:py-5 text-sm xs:text-base sm:text-lg font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-cyan-500/25"
                       >
-                        <Card className="bg-zinc-900/50 backdrop-blur-sm border-zinc-800 hover:border-cyan-400/50 transition-all duration-300 group hover:shadow-lg hover:shadow-cyan-400/10">
-                          <CardContent className="p-3 xs:p-4 sm:p-6">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <h3 className="text-sm xs:text-base sm:text-lg font-semibold text-white mb-1 xs:mb-1 sm:mb-2 group-hover:text-cyan-400 transition-colors duration-300 truncate">
-                                  {space.name}
-                                </h3>
-                                <p className="text-xs text-zinc-400 mb-1 xs:mb-2 sm:mb-4">
-                                  {space.isActive ? 'Active' : 'Inactive'} • {space._count?.streams || 0} tracks
-                                </p>
+                        + Create New Space
+                      </motion.button>
+                    </motion.div>
+
+                    {/* Past Spaces Grid */}
+                    <div className="grid grid-cols-1 xs:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 xs:gap-4 sm:gap-6">
+                      {spaces.map((space, index) => (
+                        <motion.div
+                          key={space.id}
+                          variants={cardVariants}
+                          initial="hidden"
+                          animate="visible"
+                          transition={{ duration: 0.5, delay: index * 0.1 }}
+                        >
+                          <Card className="bg-zinc-900/50 backdrop-blur-sm border-zinc-800 hover:border-cyan-400/50 transition-all duration-300 group hover:shadow-lg hover:shadow-cyan-400/10">
+                            <CardContent className="p-3 xs:p-4 sm:p-6">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="text-sm xs:text-base sm:text-lg font-semibold text-white mb-1 xs:mb-1 sm:mb-2 group-hover:text-cyan-400 transition-colors duration-300 truncate">
+                                    {space.name}
+                                  </h3>
+                                  <p className="text-xs text-zinc-400 mb-1 xs:mb-2 sm:mb-4">
+                                    {space.isActive ? 'Active' : 'Inactive'} • {space._count?.streams || 0} tracks
+                                  </p>
+                                </div>
+                                <motion.button
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  onClick={() => handleJoinSpace(space.id)}
+                                  className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white p-1.5 xs:p-2 sm:p-2.5 rounded-full transition-all duration-300 shadow-lg flex-shrink-0 hover:shadow-cyan-500/25"
+                                >
+                                  <Play className="w-3 h-3 sm:w-4 sm:h-4" />
+                                </motion.button>
                               </div>
-                              <motion.button
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
-                                onClick={() => handleJoinSpace(space.id)}
-                                className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white p-1.5 xs:p-2 sm:p-2.5 rounded-full transition-all duration-300 shadow-lg flex-shrink-0 hover:shadow-cyan-500/25"
-                              >
-                                <Play className="w-3 h-3 sm:w-4 sm:h-4" />
-                              </motion.button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    ))}
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+        )}
       </div>
       
       <SignInDialog
