@@ -374,7 +374,7 @@ export default function Page() {
                                   whileHover={{ scale: 1.1 }}
                                   whileTap={{ scale: 0.9 }}
                                   onClick={() => handleJoinSpace(space.id)}
-                                  className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white p-1.5 xs:p-2 sm:p-2.5 rounded-full transition-all duration-300 shadow-lg flex-shrink-0 hover:shadow-cyan-500/25"
+                                  className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white p-1.5 xs:p-2 sm:p-2.5 rounded-full transition-all duration-300 shadow-lg flex-shrink-0 hover:shadow-cyan-500/25 flex items-center justify-center"
                                 >
                                   <Play className="w-3 h-3 sm:w-4 sm:h-4" />
                                 </motion.button>
