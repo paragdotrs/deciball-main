@@ -178,7 +178,7 @@ export const Player: React.FC<PlayerProps> = ({
                       <motion.div
                         className="w-full max-w-md sm:max-w-lg lg:max-w-xl"
                         initial={{ scale: 0.95, boxShadow: '0 0 0 0 #0000' }}
-                        animate={{ scale: 1, boxShadow: '0 8px 32px 0 rgba(0,0,0,0.3)' }}
+                        animate={{ scale: 1, }}
                         transition={{ duration: 0.6, ease: 'easeInOut' }}
                         whileHover={{ scale: 1.03, boxShadow: '0 12px 40px 0 rgba(0,0,0,0.4)' }}
                       >

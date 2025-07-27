@@ -295,11 +295,79 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   if (loading || !user) {
     return (
       <HalftoneWavesBackground>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin w-12 h-12 border-4 border-gray-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className={`text-lg text-gray-200 ${inter.className}`}>Connecting to music room...</p>
+        <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+          {/* Background Animation Orbs */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-cyan-500/20 rounded-full blur-xl animate-pulse"></div>
+            <div className="absolute top-3/4 right-1/4 w-24 h-24 bg-purple-500/20 rounded-full blur-xl animate-pulse delay-500"></div>
+            <div className="absolute top-1/2 left-3/4 w-20 h-20 bg-teal-500/20 rounded-full blur-xl animate-pulse delay-1000"></div>
           </div>
+
+          <div className="text-center relative z-10 max-w-md px-4">
+            {/* Main Loading Spinner */}
+            <div className="relative mb-8">
+              <div className="w-20 h-20 mx-auto relative">
+                {/* Outer Ring */}
+                <div className="absolute inset-0 rounded-full border-4 border-gray-700/30"></div>
+                
+                {/* Animated Ring */}
+                <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-cyan-400 border-r-purple-400 animate-spin"></div>
+                
+                {/* Inner Pulsing Dot */}
+                <div className="absolute inset-4 rounded-full bg-gradient-to-br from-cyan-400 to-purple-400 animate-pulse shadow-lg shadow-cyan-400/25"></div>
+                
+                {/* Center Music Note */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Music className="w-6 h-6 text-white animate-bounce" />
+                </div>
+              </div>
+            </div>
+
+            {/* Title with Gradient */}
+            <div className="mb-4">
+              <h2 className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r from-cyan-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent mb-2 ${spaceGrotesk.className}`}>
+                Connecting to Music Room
+              </h2>
+              
+              {/* Animated Loading Dots */}
+              <div className="flex justify-center items-center gap-1">
+                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-150"></div>
+                <div className="w-2 h-2 bg-teal-400 rounded-full animate-bounce delay-300"></div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <p className={`text-gray-300 text-base sm:text-lg mb-6 leading-relaxed ${inter.className}`}>
+              Preparing your collaborative music experience...
+            </p>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-700/50 rounded-full h-2 mb-4 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full animate-pulse shadow-lg shadow-cyan-400/25" 
+                   style={{
+                     width: '100%',
+                     animation: 'loading-progress 2s ease-in-out infinite'
+                   }}>
+              </div>
+            </div>
+
+            {/* Fun Loading Messages */}
+            <div className={`text-sm text-gray-400 ${jetBrainsMono.className} font-mono`}>
+              <div className="animate-pulse">
+                🎵 Syncing beats and vibes...
+              </div>
+            </div>
+          </div>
+
+          {/* CSS for loading animation */}
+          <style jsx>{`
+            @keyframes loading-progress {
+              0% { transform: translateX(-100%); }
+              50% { transform: translateX(0%); }
+              100% { transform: translateX(100%); }
+            }
+          `}</style>
         </div>
       </HalftoneWavesBackground>
     );

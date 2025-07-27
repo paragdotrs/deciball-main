@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./provider";
 import BeamsBackground from "@/components/Background";
+import { Trademark } from "@/components/Trademark";
 
 
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ export default function RootLayout({
       <body>
 <Providers>
 {children}
+<Trademark />
 </Providers>
       </body>
     </html>
