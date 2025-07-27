@@ -120,15 +120,24 @@ export default function ProfileSection() {
         setIsEditing(false)
         showNotification('success', 'Profile updated successfully!')
         
-        await update({
-          ...session,
-          user: {
-            ...session?.user,
-            name: data.name,
-            username: data.username,
-            pfpUrl: data.pfpUrl
+        // Force session refresh to get updated data
+        await update()
+        
+        // Additional fallback: refresh the page data
+        setTimeout(async () => {
+          const refreshedSession = await update()
+          if (refreshedSession?.user) {
+            const refreshedProfile: ProfileData = {
+              name: String(refreshedSession.user.name || ""),
+              username: refreshedSession.user.username || refreshedSession.user.email?.split('@')[0] || "",
+              pfpUrl: refreshedSession.user.pfpUrl || "",
+              email: refreshedSession.user.email || "",
+              createdAt: profile.createdAt || new Date().toISOString()
+            }
+            setProfile(refreshedProfile)
+            setEditForm(refreshedProfile)
           }
-        })
+        }, 1000)
       } else {
         showNotification('error', data.error || 'Failed to save profile')
       }
@@ -174,8 +183,63 @@ export default function ProfileSection() {
       const result = await response.json()
 
       if (response.ok && result.success && result.fileUrls.length > 0) {
-        setEditForm({ ...editForm, pfpUrl: result.fileUrls[0] })
-        showNotification('success', 'Profile image uploaded successfully!')
+        const newPfpUrl = result.fileUrls[0]
+        setEditForm({ ...editForm, pfpUrl: newPfpUrl })
+        
+        // Auto-save the profile image to database
+        try {
+          const saveResponse = await fetch('/api/profile', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              name: editForm.name.trim(),
+              username: editForm.username.trim(),
+              pfpUrl: newPfpUrl,
+            }),
+          })
+
+          const saveData = await saveResponse.json()
+
+          if (saveResponse.ok) {
+            // Update the profile state with saved data
+            const updatedProfile = {
+              ...profile,
+              name: saveData.name,
+              username: saveData.username,
+              pfpUrl: saveData.pfpUrl || ""
+            }
+            setProfile(updatedProfile)
+            
+            // Force session refresh
+            await update()
+            
+            showNotification('success', 'Profile image updated successfully!')
+            
+            // Additional fallback to refresh session data
+            setTimeout(async () => {
+              const refreshedSession = await update()
+              if (refreshedSession?.user) {
+                const refreshedProfile: ProfileData = {
+                  name: String(refreshedSession.user.name || ""),
+                  username: refreshedSession.user.username || refreshedSession.user.email?.split('@')[0] || "",
+                  pfpUrl: refreshedSession.user.pfpUrl || "",
+                  email: refreshedSession.user.email || "",
+                  createdAt: profile.createdAt || new Date().toISOString()
+                }
+                setProfile(refreshedProfile)
+                setEditForm(refreshedProfile)
+              }
+            }, 1000)
+          } else {
+            // If database save fails, still update the form but show warning
+            showNotification('error', 'Image uploaded but failed to save to profile. Please click Save to complete.')
+          }
+        } catch (saveError) {
+          console.error('Error saving profile after image upload:', saveError)
+          showNotification('error', 'Image uploaded but failed to save to profile. Please click Save to complete.')
+        }
       } else {
         showNotification('error', result.error || 'Failed to upload image')
       }

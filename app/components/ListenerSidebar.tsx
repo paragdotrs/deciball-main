@@ -279,14 +279,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
                     >
                       Listeners
                     </motion.h2>
-                    <motion.div 
-                      className="text-xs lg:text-sm text-gray-400 font-medium"
-                      initial={{ y: 10, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: 0.15, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-                    >
-                      {listenersCount} Connected
-                    </motion.div>
+                   
                   </motion.div>
                 )}
               </AnimatePresence>

@@ -80,6 +80,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
   const [isShuffled, setIsShuffled] = useState(false);
   const [repeatMode, setRepeatMode] = useState(0);
   const [isSeeking, setIsLocalSeeking] = useState(false);
+  const [lastSeekTime, setLastSeekTime] = useState(0);
 
   const formatTime = (seconds: any) => {
     if (!seconds || isNaN(seconds)) return '0:00';
@@ -89,6 +90,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
   };
 
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const [isProgressActive, setIsProgressActive] = useState(false);
 
   const getEventPosition = (e: any) => {
     // Handle both mouse and touch events
@@ -100,54 +102,95 @@ const AudioController: React.FC<AudioControllerProps> = ({
     return { clientX: e.clientX, clientY: e.clientY };
   };
 
-  const handleProgressStart = (e: any) => {
-    if (!isAdmin) return;
-    
-    e.preventDefault();
-    setIsDragging(true);
-    
-    if (progressBarRef.current) {
-      const rect = progressBarRef.current.getBoundingClientRect();
-      const position = getEventPosition(e);
-      const percent = ((position.clientX - rect.left) / rect.width) * 100;
-      setTempProgress(Math.max(0, Math.min(100, percent)));
-    }
-  };
-
-  const handleProgressMove = (e: any) => {
-    if (!isDragging || !progressBarRef.current) return;
+  const calculateProgress = (e: any) => {
+    if (!progressBarRef.current) return 0;
     
     const rect = progressBarRef.current.getBoundingClientRect();
     const position = getEventPosition(e);
     const percent = ((position.clientX - rect.left) / rect.width) * 100;
-    setTempProgress(Math.max(0, Math.min(100, percent)));
+    return Math.max(0, Math.min(100, percent));
   };
 
-  const handleProgressEnd = () => {
-    if (isDragging) {
-      const newTime = (tempProgress / 100) * duration;
-      
+  const handleProgressStart = (e: any) => {
+    if (!isAdmin) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDragging(true);
+    setIsProgressActive(true);
+    
+    const percent = calculateProgress(e);
+    setTempProgress(percent);
+    
+    // Add visual feedback immediately
+    if (progressBarRef.current) {
+      progressBarRef.current.style.transform = 'scaleY(1.5)';
+      progressBarRef.current.style.transition = 'transform 0.1s ease';
+    }
+  };
+
+  const handleProgressMove = (e: any) => {
+    if (!isDragging || !progressBarRef.current || !isAdmin) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const percent = calculateProgress(e);
+    setTempProgress(percent);
+  };
+
+  const handleProgressEnd = (e?: any) => {
+    if (!isDragging || !isAdmin) return;
+    
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    const newTime = (tempProgress / 100) * duration;
+    const currentTime = Date.now();
+    
+    // Throttle seeking to prevent too many rapid calls
+    if (currentTime - lastSeekTime > 100) {
       setIsLocalSeeking(true);
-      setTimeout(() => setIsLocalSeeking(false), 3000);
+      setTimeout(() => setIsLocalSeeking(false), 1500);
       
       seek(newTime);
-      setIsDragging(false);
+      setLastSeekTime(currentTime);
+    }
+    
+    setIsDragging(false);
+    setIsProgressActive(false);
+    
+    // Reset visual feedback
+    if (progressBarRef.current) {
+      progressBarRef.current.style.transform = 'scaleY(1)';
+      progressBarRef.current.style.transition = 'transform 0.2s ease';
     }
   };
 
   const handleProgressClick = (e: any) => {
-    if (!isAdmin) return;
+    if (!isAdmin || isDragging) return;
     
-    if (progressBarRef.current) {
-      const rect = progressBarRef.current.getBoundingClientRect();
-      const position = getEventPosition(e);
-      const percent = ((position.clientX - rect.left) / rect.width) * 100;
-      const newTime = (percent / 100) * duration;
-      
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const percent = calculateProgress(e);
+    const newTime = (percent / 100) * duration;
+    const currentTime = Date.now();
+    
+    // Throttle seeking for clicks too
+    if (currentTime - lastSeekTime > 100) {
       setIsLocalSeeking(true);
-      setTimeout(() => setIsLocalSeeking(false), 3000);
+      setTimeout(() => setIsLocalSeeking(false), 1500);
       
       seek(newTime);
+      setLastSeekTime(currentTime);
+      
+      // Visual feedback for click
+      setTempProgress(percent);
+      setTimeout(() => setTempProgress(0), 100);
     }
   };
 
@@ -206,24 +249,43 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
   useEffect(() => {
     if (isDragging) {
-      const handleMouseMove = (e: MouseEvent) => handleProgressMove(e);
-      const handleMouseUp = () => handleProgressEnd();
+      const handleMouseMove = (e: MouseEvent) => {
+        e.preventDefault();
+        handleProgressMove(e);
+      };
+      const handleMouseUp = (e: MouseEvent) => {
+        e.preventDefault();
+        handleProgressEnd(e);
+      };
       const handleTouchMove = (e: TouchEvent) => {
         e.preventDefault(); // Prevent scrolling
         handleProgressMove(e);
       };
-      const handleTouchEnd = () => handleProgressEnd();
+      const handleTouchEnd = (e: TouchEvent) => {
+        e.preventDefault();
+        handleProgressEnd(e);
+      };
       
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      // Add both pointer and touch events for better mobile support
+      document.addEventListener('mousemove', handleMouseMove, { passive: false });
+      document.addEventListener('mouseup', handleMouseUp, { passive: false });
       document.addEventListener('touchmove', handleTouchMove, { passive: false });
-      document.addEventListener('touchend', handleTouchEnd);
+      document.addEventListener('touchend', handleTouchEnd, { passive: false });
+      
+      // Also handle when touch goes outside the viewport
+      document.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+      
+      // Prevent context menu on mobile
+      const preventContextMenu = (e: Event) => e.preventDefault();
+      document.addEventListener('contextmenu', preventContextMenu);
       
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
         document.removeEventListener('touchmove', handleTouchMove);
         document.removeEventListener('touchend', handleTouchEnd);
+        document.removeEventListener('touchcancel', handleTouchEnd);
+        document.removeEventListener('contextmenu', preventContextMenu);
       };
     }
   }, [isDragging, tempProgress, duration, isAdmin, seek]);
@@ -247,11 +309,19 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <div 
               ref={progressBarRef}
               data-progress-bar
-              className={`flex-1 bg-gray-600 rounded-full h-1 relative group transition-all duration-200 ${
+              className={`flex-1 bg-gray-600 rounded-full relative group transition-all duration-200 select-none ${
                 isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
               } ${
                 isSeeking ? 'ring-2 ring-gray-400 ring-opacity-50' : ''
+              } ${
+                isDragging || isProgressActive ? 'ring-2 ring-white ring-opacity-30' : ''
               }`}
+              style={{
+                height: isDragging || isProgressActive ? '6px' : '4px',
+                touchAction: 'none', // Prevent default touch behaviors
+                WebkitTapHighlightColor: 'transparent',
+                userSelect: 'none'
+              }}
               onMouseDown={handleProgressStart}
               onTouchStart={handleProgressStart}
               onClick={handleProgressClick}
@@ -261,19 +331,48 @@ const AudioController: React.FC<AudioControllerProps> = ({
               }
             >
               <div 
-                className={`bg-gradient-to-r from-gray-400 to-gray-500 h-1 rounded-full transition-all duration-200 relative ${
+                className={`bg-gradient-to-r from-gray-300 to-white rounded-full relative transition-all duration-100 ${
                   isDragging ? 'transition-none' : ''
                 } ${
                   isSeeking ? 'animate-pulse' : ''
-                }`}
-                style={{ width: `${progressPercent}%` }}
-              >
-                <div className={`absolute right-0 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg transition-all duration-200 -mr-1.5 ${
-                  isDragging || isSeeking || (isAdmin && progressPercent > 0) ? 'opacity-100 scale-110' : 'opacity-0 group-hover:opacity-100'
                 } ${
-                  isSeeking ? 'ring-2 ring-gray-400 ring-opacity-50' : ''
-                }`} />
+                  isProgressActive ? 'shadow-lg' : ''
+                }`}
+                style={{ 
+                  height: '100%',
+                  width: `${progressPercent}%`,
+                  willChange: 'width'
+                }}
+              >
+                {/* Enhanced progress thumb for mobile */}
+                <div 
+                  className={`absolute right-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full shadow-lg transition-all duration-150 ${
+                    isDragging || isSeeking || (isAdmin && progressPercent > 0) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  } ${
+                    isDragging || isProgressActive ? 'scale-125' : 'scale-100'
+                  } ${
+                    isSeeking ? 'ring-2 ring-gray-400 ring-opacity-50 animate-pulse' : ''
+                  }`}
+                  style={{
+                    width: isDragging || isProgressActive ? '16px' : '12px',
+                    height: isDragging || isProgressActive ? '16px' : '12px',
+                    marginRight: isDragging || isProgressActive ? '-8px' : '-6px',
+                    touchAction: 'none',
+                    willChange: 'transform, width, height'
+                  }}
+                />
               </div>
+              
+              {/* Mobile touch area enhancement */}
+              {isAdmin && (
+                <div 
+                  className="absolute inset-0 -top-2 -bottom-2 bg-transparent"
+                  style={{ 
+                    touchAction: 'none',
+                    WebkitTapHighlightColor: 'transparent'
+                  }}
+                />
+              )}
             </div>
             <span className="text-xs sm:text-sm">{formatTime(duration)}</span>
           </div>
@@ -472,13 +571,60 @@ const AudioController: React.FC<AudioControllerProps> = ({
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         
-        /* Simplified mobile optimizations */
-        button {
-          -webkit-tap-highlight-color: transparent;
-          touch-action: manipulation;
-          user-select: none;
+        /* Enhanced mobile optimizations for progress bar */
+        [data-progress-bar] {
+          -webkit-tap-highlight-color: transparent !important;
+          -webkit-touch-callout: none !important;
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
+          touch-action: none !important;
+          will-change: transform, height !important;
         }
         
+        /* Smooth progress bar animations */
+        [data-progress-bar] > div {
+          will-change: width !important;
+          backface-visibility: hidden !important;
+          -webkit-backface-visibility: hidden !important;
+          transform: translateZ(0) !important;
+          -webkit-transform: translateZ(0) !important;
+        }
+        
+        /* Enhanced touch targets for mobile */
+        @media (max-width: 640px) {
+          [data-progress-bar] {
+            min-height: 20px !important;
+            padding: 8px 0 !important;
+            margin: -8px 0 !important;
+            cursor: pointer !important;
+          }
+          
+          [data-progress-bar]:active {
+            transform: scaleY(1.2) !important;
+            transition: transform 0.1s ease !important;
+          }
+        }
+        
+        /* Button optimizations */
+        button {
+          -webkit-tap-highlight-color: transparent !important;
+          -webkit-touch-callout: none !important;
+          touch-action: manipulation !important;
+          user-select: none !important;
+          transform: translateZ(0) !important;
+          -webkit-transform: translateZ(0) !important;
+          will-change: transform !important;
+        }
+        
+        /* Enhanced mobile feedback with better performance */
+        button:active {
+          transform: scale(0.95) translateZ(0) !important;
+          transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        /* Icon color fixes */
         .text-black svg path {
           stroke: #000000 !important;
         }
@@ -493,13 +639,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
           stroke: currentColor !important;
         }
         
-        /* Enhanced mobile feedback */
-        button:active {
-          transform: scale(0.95) !important;
-          transition: transform 0.1s ease !important;
-        }
-        
-        /* Ensure minimum touch targets */
+        /* Minimum touch targets */
         @media (max-width: 640px) {
           button {
             min-height: 44px !important;
@@ -508,16 +648,31 @@ const AudioController: React.FC<AudioControllerProps> = ({
           }
         }
 
-        /* Prevent text selection on interactive elements */
-        button, [data-progress-bar] {
-          -webkit-tap-highlight-color: transparent;
+        /* Disable text selection and highlight */
+        * {
+          -webkit-tap-highlight-color: transparent !important;
         }
         
-        /* Force hardware acceleration for smoother animations */
-        button, [data-progress-bar] {
-          transform: translateZ(0);
-          -webkit-transform: translateZ(0);
-          will-change: transform;
+        /* Hardware acceleration for smooth performance */
+        [data-progress-bar], button {
+          transform: translateZ(0) !important;
+          -webkit-transform: translateZ(0) !important;
+          backface-visibility: hidden !important;
+          -webkit-backface-visibility: hidden !important;
+        }
+        
+        /* Progress bar smooth dragging */
+        [data-progress-bar].dragging {
+          transition: none !important;
+        }
+        
+        /* Improved mobile progress thumb */
+        @media (max-width: 640px) {
+          [data-progress-bar] .progress-thumb {
+            width: 20px !important;
+            height: 20px !important;
+            margin-right: -10px !important;
+          }
         }
       `}</style>
     </div>
