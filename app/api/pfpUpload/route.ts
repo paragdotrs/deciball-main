@@ -1,7 +1,5 @@
 import { uploadtoS3 } from "@/actions/users/uploadToS3";
 import { NextResponse } from "next/server";
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; 
 
@@ -47,26 +45,27 @@ export async function POST(req: Request): Promise<Response> {
 
         let fileUrl: string;
 
-        // Check if S3 environment variables are set
         const hasS3Config = process.env.AWS_S3_BUCKET_NAME && 
                            process.env.AWS_S3_REGION && 
                            process.env.AWS_S3_ACCESS_KEY_ID && 
                            process.env.AWS_S3_SECRET_ACCESS_KEY;
 
-        if (hasS3Config) {
-          console.log(`[PFP Upload] Uploading to S3: ${fileName}`);
-          try {
-            fileUrl = await uploadtoS3(buffer, fileName, file.type, imageType);
-            console.log(`[PFP Upload] S3 Upload successful: ${fileUrl}`);
-          } catch (s3Error) {
-            console.error(`[PFP Upload] S3 upload failed, falling back to local storage:`, s3Error);
-            // Fallback to local storage
-            fileUrl = await saveLocally(buffer, fileName);
-          }
-        } else {
-          console.log(`[PFP Upload] S3 not configured, using local storage`);
-          // Use local storage as fallback
-          fileUrl = await saveLocally(buffer, fileName);
+        if (!hasS3Config) {
+          console.error('[PFP Upload] S3 configuration missing. Required environment variables: AWS_S3_BUCKET_NAME, AWS_S3_REGION, AWS_S3_ACCESS_KEY_ID, AWS_S3_SECRET_ACCESS_KEY');
+          return NextResponse.json({ 
+            error: "S3 storage is not properly configured. Please contact administrator." 
+          }, { status: 500 });
+        }
+
+        console.log(`[PFP Upload] Uploading to S3: ${fileName}`);
+        try {
+          fileUrl = await uploadtoS3(buffer, fileName, file.type, imageType);
+          console.log(`[PFP Upload] S3 Upload successful: ${fileUrl}`);
+        } catch (s3Error) {
+          console.error(`[PFP Upload] S3 upload failed:`, s3Error);
+          return NextResponse.json({ 
+            error: `Failed to upload to S3: ${s3Error instanceof Error ? s3Error.message : 'Unknown S3 error'}` 
+          }, { status: 500 });
         }
         
         uploadedFileUrls.push(fileUrl);
@@ -92,31 +91,5 @@ export async function POST(req: Request): Promise<Response> {
     console.error("[PFP Upload] Error in upload route:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown server error";
     return NextResponse.json({ error: errorMessage }, { status: 500 });
-  }
-}
-
-// Fallback function to save files locally
-async function saveLocally(buffer: Buffer, fileName: string): Promise<string> {
-  try {
-    const timestampedFilename = `${Date.now()}-${fileName.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const publicDir = join(process.cwd(), 'public', 'uploads');
-    const filePath = join(publicDir, timestampedFilename);
-    
-    // Create uploads directory if it doesn't exist
-    try {
-      await writeFile(filePath, buffer);
-    } catch (error) {
-      // If directory doesn't exist, create it and try again
-      const { mkdir } = await import('fs/promises');
-      await mkdir(join(process.cwd(), 'public', 'uploads'), { recursive: true });
-      await writeFile(filePath, buffer);
-    }
-    
-    const fileUrl = `/uploads/${timestampedFilename}`;
-    console.log(`[PFP Upload] Local storage successful: ${fileUrl}`);
-    return fileUrl;
-  } catch (error) {
-    console.error('[PFP Upload] Local storage failed:', error);
-    throw new Error(`Local storage failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

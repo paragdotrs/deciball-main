@@ -8,14 +8,23 @@ export const uploadtoS3 = async (file: Buffer, filename: string, contentType: st
     const fileBuffer = file;
     const timestampedFilename = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     
-    console.log(`[S3 Upload] Timestamped filename: ${timestampedFilename}`);
+    // Use different folder structure based on file type
+    let keyPrefix = 'images';
+    if (fileType === 'profile') {
+      keyPrefix = 'profile-images';
+    }
+
+    console.log(`[S3 Upload] ID - Pass ${process.env.AWS_S3_ACCESS_KEY_ID} ` , `${process.env.AWS_S3_SECRET_ACCESS_KEY}`);
+    console.log(`[S3 Upload] Key prefix: ${keyPrefix}`);
     console.log(`[S3 Upload] Bucket: ${process.env.AWS_S3_BUCKET_NAME}, Region: ${process.env.AWS_S3_REGION}`);
     
     const params = {
       Bucket: process.env.AWS_S3_BUCKET_NAME,
-      Key: `images/${timestampedFilename}`,
+      Key: `${keyPrefix}/${timestampedFilename}`,
       Body: fileBuffer,
-      ContentType: contentType, 
+      ContentType: contentType,
+      // Make profile images publicly readable
+      ACL: 'public-read' as const,
     };
 
     const command = new PutObjectCommand(params);
@@ -24,7 +33,7 @@ export const uploadtoS3 = async (file: Buffer, filename: string, contentType: st
     const result = await s3Client.send(command);
     console.log(`[S3 Upload] Upload successful:`, result);
 
-    const fileUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_S3_REGION}.amazonaws.com/images/${timestampedFilename}`;
+    const fileUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_S3_REGION}.amazonaws.com/${keyPrefix}/${timestampedFilename}`;
     console.log(`[S3 Upload] Generated URL: ${fileUrl}`);
     
     return fileUrl;
