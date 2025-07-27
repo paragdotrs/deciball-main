@@ -17,7 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
 import ListenerSidebar from '@/app/components/ListenerSidebar';
 import { SidebarProvider } from '@/app/components/ui/sidebar';
-// import { DiscordPresence } from './DiscordPresence';
+import { DiscordPresence } from './DiscordPresence';
 import { ElectronDetector } from './ElectronDetector';
 import HalftoneWavesBackground from './Background';
 import BlurText, { BlurComponent } from './ui/BlurEffects';
@@ -308,7 +308,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   return (
     <HalftoneWavesBackground>
       <div className="flex min-h-screen text-white relative">
-        {/* <DiscordPresence /> */}
+        <DiscordPresence />
         
         <ElectronDetector />
         

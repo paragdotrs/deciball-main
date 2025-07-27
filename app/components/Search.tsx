@@ -254,6 +254,8 @@ export default function SearchSongPopup({
   const [results, setResults] = useState<Track[]>([]);
   const [selectedTracks, setSelectedTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
+  const [addingToQueue, setAddingToQueue] = useState(false);
+  const [loadingTrackId, setLoadingTrackId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -302,6 +304,8 @@ export default function SearchSongPopup({
       setSelectedTracks([]);
       setError(null);
       setHasSearched(false);
+      setLoadingTrackId(null);
+      setAddingToQueue(false);
     }
   }, [open]);
 
@@ -464,7 +468,8 @@ export default function SearchSongPopup({
       return;
     }
 
-  
+    setLoadingTrackId(track.id);
+    setAddingToQueue(true);
     try {
       console.log("Sending the fuckinnn Track ", track);
       const response = await axios.post("/api/spotify/getTrack", track);
@@ -506,12 +511,16 @@ export default function SearchSongPopup({
       } else {
         setError('Failed to add the selected track to queue');
       }
+    } finally {
+      setLoadingTrackId(null);
+      setAddingToQueue(false);
     }
   };
 
   const handleAddSelectedToQueue = async () => {
     if (selectedTracks.length === 0) return;
 
+    setAddingToQueue(true);
     try {
       if (!spaceId) {
         setError('Room ID not found. Please rejoin the room.');
@@ -557,6 +566,8 @@ export default function SearchSongPopup({
       setSelectedTracks([]);
     } catch (error) {
       setError('Failed to add selected tracks to queue');
+    } finally {
+      setAddingToQueue(false);
     }
   };
 
@@ -658,11 +669,21 @@ export default function SearchSongPopup({
                 {selectedTracks.length > 0 && (
                   <Button
                     onClick={handleAddSelectedToQueue}
-                    className="bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto mt-2 sm:mt-0"
+                    disabled={addingToQueue}
+                    className="bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto mt-2 sm:mt-0 disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add {selectedTracks.length} to Queue
+                    {addingToQueue ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add {selectedTracks.length} to Queue
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
@@ -694,16 +715,19 @@ export default function SearchSongPopup({
                     selectedItemIds={selectedTracks.map(t => t.id)}
                     className="h-full"
                     displayScrollbar={true}
-                    renderItem={(track, index, isSelected) => (
-                      <div
-                        className={cn(
-                          "group flex items-center gap-3 sm:gap-4 p-3 sm:p-4 border-b border-zinc-800/30 last:border-b-0 transition-all duration-300 hover:bg-gradient-to-r hover:from-zinc-800/40 hover:to-zinc-700/40",
-                          enableBatchSelection && isAdmin 
-                            ? "hover:bg-zinc-800/50" 
-                            : "hover:bg-zinc-800/60 hover:scale-[1.01]",
-                          "backdrop-blur-sm"
-                        )}
-                      >
+                    renderItem={(track, index, isSelected) => {
+                      const isLoading = loadingTrackId === track.id;
+                      return (
+                        <div
+                          className={cn(
+                            "group flex items-center gap-3 sm:gap-4 p-3 sm:p-4 border-b border-zinc-800/30 last:border-b-0 transition-all duration-300",
+                            enableBatchSelection && isAdmin 
+                              ? "hover:bg-zinc-800/50" 
+                              : "hover:bg-zinc-800/60 hover:scale-[1.01]",
+                            "backdrop-blur-sm",
+                            isLoading && "opacity-75 pointer-events-none"
+                          )}
+                        >
                         {enableBatchSelection && isAdmin && (
                           <div className="flex-shrink-0">
                             <div className={cn(
@@ -761,13 +785,22 @@ export default function SearchSongPopup({
                           </div>
                         </div>
                         
-                        <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <div className="p-1.5 sm:p-2 rounded-full bg-zinc-700/50 text-zinc-300">
-                            <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
-                          </div>
+                        <div className="flex-shrink-0">
+                          {isLoading ? (
+                            <div className="p-1.5 sm:p-2 rounded-full bg-zinc-700/50 text-zinc-300">
+                              <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin text-cyan-400" />
+                            </div>
+                          ) : (
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <div className="p-1.5 sm:p-2 rounded-full bg-zinc-700/50 text-zinc-300">
+                                <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    )}
+                    );
+                  }}
                   />
                 </div>
               )}
