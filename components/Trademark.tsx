@@ -11,7 +11,7 @@ export const Trademark = () => {
 
   return (
     <motion.div
-      className="fixed bottom-4 right-4 z-50 cursor-pointer"
+      className="fixed bottom-4 right-4 z-50 cursor-pointer scale-75 sm:scale-100"
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 1, duration: 0.6, ease: "easeOut" }}
@@ -24,7 +24,7 @@ export const Trademark = () => {
       >
         {/* Main container */}
         <motion.div
-          className="relative bg-black/60 backdrop-blur-xl border border-white/20 rounded-xl px-3 py-2 shadow-2xl"
+          className="relative bg-black/60 backdrop-blur-xl border border-white/20 rounded-lg sm:rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 shadow-2xl"
           style={{
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
@@ -39,17 +39,18 @@ export const Trademark = () => {
               transition={{ delay: 1.2, duration: 0.4 }}
             >
               <motion.span
-                className={`text-xs text-gray-300 ${jetBrainsMono.className} font-mono`}
+                className={`text-xs sm:text-xs text-gray-300 ${jetBrainsMono.className} font-mono`}
               >
                 Built by
               </motion.span>
-              <div className=' p-2'>
+              <div className='p-1 sm:p-2'>
                     <FuzzyText
-                  fontSize="20px"
+                  fontSize="16px"
                   fontWeight={700}
                   color="#e5e7eb"
                   enableHover={false}
                   baseIntensity={0.15}
+                  horizontalMargin={5}
                 >
                   Zeus Notfound
                 </FuzzyText>      
