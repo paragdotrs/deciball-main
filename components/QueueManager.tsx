@@ -1,13 +1,17 @@
 import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { useSocket } from '@/context/socket-context';
+import { useToast } from '@/context/toast-context';
 import { useUserStore } from '@/store/userStore';
 import { useAudio, useAudioStore } from '@/store/audioStore';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
+import { Input } from '@/app/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/app/components/ui/dialog';
 import { PiArrowFatLineUpFill } from "react-icons/pi";
 import { LuArrowBigUpDash } from "react-icons/lu";
+import { Link, Plus, Loader2 } from 'lucide-react';
 import { 
   PlayIcon, 
   DeleteIcon, 
@@ -18,6 +22,19 @@ import {
   SearchIcon
 } from '@/components/icons';
 import { inter, outfit, manrope, spaceGrotesk } from '@/lib/font';
+import axios from 'axios';
+
+// Spotify Logo Component
+const SpotifyLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg 
+    className={className}
+    viewBox="0 0 24 24" 
+    fill="currentColor" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.84-.179-.959-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.361 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.840c.361.181.48.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.301.421-1.02.599-1.559.3z"/>
+  </svg>
+);
 
 interface QueueItem {
   id: string;
@@ -317,7 +334,7 @@ const SongCard = ({
 }) => {
   // Simple click handlers that work on both desktop and mobile
   const handleCardClick = (e: any) => {
-    if (!isCurrentlyPlaying) {
+    if (!isCurrentlyPlaying && isAdmin) {
       e.preventDefault();
       e.stopPropagation();
       onPlayInstant();
@@ -348,10 +365,17 @@ const SongCard = ({
         className={`transition-all duration-500 backdrop-blur-xl shadow-xl w-full max-w-full queue-card ${
           isCurrentlyPlaying 
             ? 'border-blue-500/40 bg-blue-900/20 shadow-2xl shadow-blue-500/25 ring-1 ring-blue-500/20' 
-            : 'bg-[#1C1E1F] cursor-pointer hover:shadow-2xl hover:shadow-black/30 hover:ring-white/10'
+            : isAdmin 
+              ? 'bg-[#1C1E1F] cursor-pointer hover:shadow-2xl hover:shadow-black/30 hover:ring-white/10'
+              : 'bg-[#1C1E1F] cursor-not-allowed opacity-75'
         }`}
-        role={!isCurrentlyPlaying ? "button" : undefined}
-        tabIndex={!isCurrentlyPlaying ? 0 : undefined}
+        role={!isCurrentlyPlaying && isAdmin ? "button" : undefined}
+        tabIndex={!isCurrentlyPlaying && isAdmin ? 0 : undefined}
+        title={
+          !isCurrentlyPlaying 
+            ? (isAdmin ? "Click to play instantly (Admin only)" : "Play instantly (Admin only)")
+            : undefined
+        }
       >
         <CardContent className="p-2 sm:p-3 w-full max-w-full">
           <div className="flex items-center space-x-3 sm:space-x-4 w-full max-w-full min-w-0">
@@ -417,18 +441,6 @@ const SongCard = ({
                 </motion.div>
               )}
               
-              {isCurrentlyPlaying && (
-                <motion.div 
-                  className="flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-white/10 backdrop-blur-xl border-2 border-white/20 shadow-xl ring-1 ring-white/10"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <PiArrowFatLineUpFill size={14} className="sm:w-4 sm:h-4 text-blue-400" style={{ color: '#60a5fa' }} />
-                  <span className="font-bold text-white text-xs sm:text-sm">{item.voteCount}</span>
-                </motion.div>
-              )}
-              
               {isAdmin && (
                 <motion.div
                   initial={{ opacity: 1, scale: 1 }}
@@ -460,9 +472,30 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentPlaying, setCurrentPlaying] = useState<QueueItem | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  
+  // New state for direct link and playlist features
+  const [directUrl, setDirectUrl] = useState('');
+  const [isAddingDirectUrl, setIsAddingDirectUrl] = useState(false);
+  const [showDirectUrlDialog, setShowDirectUrlDialog] = useState(false);
+  
+  const [playlistUrl, setPlaylistUrl] = useState('');
+  const [isProcessingPlaylist, setIsProcessingPlaylist] = useState(false);
+  const [showPlaylistDialog, setShowPlaylistDialog] = useState(false);
+  const [playlistProgress, setPlaylistProgress] = useState<{
+    current: number;
+    total: number;
+    percentage: number;
+    currentTrack: string;
+    status: string;
+  } | null>(null);
+  
   const { sendMessage, socket } = useSocket();
-  const { user } = useUserStore();
+  const { user, isAdmin: userIsAdmin } = useUserStore();
   const { voteOnSong, addToQueue, play, currentSong: audioCurrentSong } = useAudio();
+  const { showToast } = useToast();
+
+  // Use admin status from user store, fallback to prop for backward compatibility
+  const adminStatus = userIsAdmin || isAdmin;
 
   const sortedQueue = useMemo(() => {
     return [...queue].sort((a, b) => {
@@ -696,7 +729,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
     return () => {
       socket.removeEventListener('message', handleMessage);
     };
-  }, [socket, sendMessage, spaceId, currentPlaying, isAdmin]);
+  }, [socket, sendMessage, spaceId, currentPlaying, adminStatus]);
 
   const handleVote = (streamId: string) => {
     const item = queue.find(q => q.id === streamId);
@@ -718,23 +751,28 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   };
 
   const handlePlayInstant = (songId: string) => {
+    if (!adminStatus) {
+      console.log('[QueueManager] Play instant action denied - user is not admin');
+      return;
+    }
+    console.log('[QueueManager] Admin playing song instantly:', songId);
     sendMessage("play-instant", { spaceId, songId });
   };
 
   const handlePlayNext = () => {
-    if (!isAdmin) return;
+    if (!adminStatus) return;
     console.log('Admin playing next song for space:', spaceId);
     sendMessage('play-next', { spaceId });
   };
 
   const handleRemoveSong = (streamId: string) => {
-    if (!isAdmin) return;
+    if (!adminStatus) return;
     console.log('Admin removing song:', streamId);
     sendMessage('remove-song', { spaceId, streamId });
   }
 
   const handleEmptyQueue = () => {
-    if (!isAdmin) return;
+    if (!adminStatus) return;
     console.log('Admin emptying queue for space:', spaceId);
     sendMessage('empty-queue', { spaceId });
   };
@@ -751,16 +789,227 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
     return voted;
   };
 
+  // Direct URL/Link adding functionality
+  const isValidYouTubeUrl = (url: string): boolean => {
+    const patterns = [
+      /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]{11}/,
+      /^(https?:\/\/)?(www\.)?youtube\.com\/embed\/[a-zA-Z0-9_-]{11}/,
+      /^[a-zA-Z0-9_-]{11}$/ // Direct video ID
+    ];
+    return patterns.some(pattern => pattern.test(url.trim()));
+  };
+
+  const isValidSpotifyUrl = (url: string): boolean => {
+    const patterns = [
+      /^(https?:\/\/)?(open\.)?spotify\.com\/track\/[a-zA-Z0-9]+/,
+      /^spotify:track:[a-zA-Z0-9]+$/
+    ];
+    return patterns.some(pattern => pattern.test(url.trim()));
+  };
+
+  const handleAddDirectUrl = async () => {
+    if (!directUrl.trim()) return;
+    if (!adminStatus) {
+      console.log('[QueueManager] Direct URL add denied - user is not admin');
+      return;
+    }
+
+    setIsAddingDirectUrl(true);
+    try {
+      const trimmedUrl = directUrl.trim();
+      
+      if (isValidYouTubeUrl(trimmedUrl) || isValidSpotifyUrl(trimmedUrl)) {
+        console.log('[QueueManager] Adding direct URL:', trimmedUrl);
+        
+        const success = sendMessage('add-to-queue', {
+          spaceId,
+          url: trimmedUrl,
+          userId: user?.id,
+          autoPlay: false
+        });
+
+        if (success) {
+          console.log('✅ Direct URL sent for processing');
+          showToast('Link added to queue successfully!', 'success');
+          setDirectUrl('');
+          setShowDirectUrlDialog(false);
+        } else {
+          throw new Error('Failed to send URL to server');
+        }
+      } else {
+        throw new Error('Invalid URL format. Please provide a valid YouTube or Spotify link.');
+      }
+    } catch (error: any) {
+      console.error('Error adding direct URL:', error);
+      showToast(error.message || 'Failed to add link', 'error');
+    } finally {
+      setIsAddingDirectUrl(false);
+    }
+  };
+
+  // Spotify Playlist processing functionality
+  const isValidSpotifyPlaylistUrl = (url: string): boolean => {
+    const patterns = [
+      /^(https?:\/\/)?(open\.)?spotify\.com\/playlist\/[a-zA-Z0-9]+/,
+      /^spotify:playlist:[a-zA-Z0-9]+$/,
+      /^[a-zA-Z0-9]+$/ // Direct playlist ID
+    ];
+    return patterns.some(pattern => pattern.test(url.trim()));
+  };
+
+  const handleProcessSpotifyPlaylist = async () => {
+    if (!playlistUrl.trim()) return;
+    if (!adminStatus) {
+      console.log('[QueueManager] Playlist processing denied - user is not admin');
+      return;
+    }
+
+    setIsProcessingPlaylist(true);
+    setPlaylistProgress({ current: 0, total: 0, percentage: 0, currentTrack: '', status: 'Initializing...' });
+
+    try {
+      const trimmedUrl = playlistUrl.trim();
+      
+      if (!isValidSpotifyPlaylistUrl(trimmedUrl)) {
+        throw new Error('Invalid Spotify playlist URL. Please provide a valid Spotify playlist link.');
+      }
+
+      console.log('[QueueManager] Processing Spotify playlist:', trimmedUrl);
+      
+      // Step 1: Get playlist tracks
+      setPlaylistProgress(prev => prev ? { ...prev, status: 'Fetching playlist tracks...' } : null);
+      
+      const response = await axios.get(`/api/spotify/playlist?url=${encodeURIComponent(trimmedUrl)}`);
+      
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to fetch playlist');
+      }
+
+      const tracks = response.data.data.tracks;
+      console.log(`Retrieved ${tracks.length} tracks from playlist`);
+
+      if (tracks.length === 0) {
+        throw new Error('No tracks found in playlist');
+      }
+
+      // Step 2: Convert tracks to simplified format for backend worker pool processing
+      setPlaylistProgress(prev => prev ? { 
+        ...prev, 
+        total: tracks.length, 
+        status: 'Preparing tracks for worker pool processing...' 
+      } : null);
+
+      const songsForBatch = tracks.map((track: any, index: number) => ({
+        // Send minimal data - let backend worker pool handle YouTube search
+        title: track.name,
+        artist: track.artists.map((a: any) => a.name).join(', '),
+        album: track.album.name,
+        spotifyId: track.id,
+        spotifyUrl: `https://open.spotify.com/track/${track.id}`,
+        smallImg: track.album.images?.[track.album.images.length - 1]?.url || '',
+        bigImg: track.album.images?.[0]?.url || '',
+        duration: track.duration_ms,
+        source: 'Spotify' // Source is Spotify, backend will convert to YouTube
+      }));
+
+      // Step 3: Send batch request with worker pool processing
+      setPlaylistProgress(prev => prev ? { 
+        ...prev, 
+        status: 'Sending to optimized processing system...' 
+      } : null);
+
+      const success = sendMessage('add-batch-to-queue', {
+        spaceId,
+        songs: songsForBatch,
+        userId: user?.id,
+        autoPlay: false
+      });
+
+      if (success) {
+        console.log(`✅ Playlist batch sent: ${songsForBatch.length} tracks`);
+        setPlaylistProgress(prev => prev ? { 
+          ...prev, 
+          status: 'Processing playlist with worker pool...',
+          percentage: 0
+        } : null);
+      } else {
+        throw new Error('Failed to send playlist to processing system');
+      }
+      
+    } catch (error: any) {
+      console.error('Error processing Spotify playlist:', error);
+      showToast(error.message || 'Failed to process playlist', 'error');
+      setPlaylistProgress(prev => prev ? { 
+        ...prev, 
+        status: `Error: ${error.message}` 
+      } : null);
+      setTimeout(() => {
+        setIsProcessingPlaylist(false);
+        setPlaylistProgress(null);
+      }, 3000);
+    }
+  };
+
+  // Listen for playlist processing progress updates
+  useEffect(() => {
+    if (!socket || !isProcessingPlaylist) return;
+
+    const handleProgressUpdate = (event: MessageEvent) => {
+      const { type, data } = JSON.parse(event.data);
+      
+      if (type === 'processing-progress') {
+        console.log('📊 Playlist processing progress:', data);
+        setPlaylistProgress({
+          current: data.current || 0,
+          total: data.total || 0,
+          percentage: data.percentage || 0,
+          currentTrack: data.currentTrack || '',
+          status: data.status || 'Processing...'
+        });
+      } else if (type === 'batch-processing-result') {
+        console.log('🎉 Playlist processing completed:', data);
+        const successCount = data.successful || 0;
+        const failedCount = data.failed || 0;
+        
+        setPlaylistProgress(prev => prev ? {
+          ...prev,
+          percentage: 100,
+          status: `Completed! ${successCount} tracks added successfully.`
+        } : null);
+        
+        // Show success toast
+        if (successCount > 0) {
+          showToast(
+            `Successfully added ${successCount} tracks from playlist!${failedCount > 0 ? ` (${failedCount} failed)` : ''}`, 
+            failedCount > 0 ? 'warning' : 'success'
+          );
+        } else {
+          showToast('No tracks were added from the playlist', 'error');
+        }
+        
+        setTimeout(() => {
+          setIsProcessingPlaylist(false);
+          setPlaylistProgress(null);
+          setPlaylistUrl('');
+          setShowPlaylistDialog(false);
+        }, 2000);
+      }
+    };
+
+    socket.addEventListener('message', handleProgressUpdate);
+    return () => socket.removeEventListener('message', handleProgressUpdate);
+  }, [socket, isProcessingPlaylist]);
+
   return (
-    <div className="space-y-4 sm:space-y-6 w-full max-w-full md:w-[32rem] md:max-w-[32rem] flex-shrink-0 queue-container">
+    <div className="space-y-4 sm:space-y-6 w-full max-w-full md:w-[32rem] md:max-w-[32rem] flex-shrink-0 queue-container h-[calc(100vh-8rem)] flex flex-col">
       <motion.div 
-        className="space-y-4 sm:space-y-6 w-full max-w-full"
+        className="space-y-4 sm:space-y-6 w-full max-w-full flex flex-col h-full"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
         <motion.div 
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 flex-shrink-0"
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
@@ -776,6 +1025,158 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             </motion.div>
             <h2 className="text-xl sm:text-2xl font-bold text-white">Music Queue</h2>
           </div>
+          
+          {/* Admin Action Buttons - Add Direct URL and Playlist */}
+          {adminStatus && (
+            <div className="flex items-center gap-2">
+              {/* Direct URL/Link Button */}
+              <Dialog open={showDirectUrlDialog} onOpenChange={setShowDirectUrlDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-green-500/20 border-green-500/30 text-green-300 hover:bg-green-500/30 hover:text-green-200 transition-all duration-200"
+                  >
+                    <Link className="w-4 h-4 mr-2" />
+                    Add Link
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl p-0 max-w-md">
+                  <div className="p-8">
+                    <DialogHeader className="mb-8">
+                      <DialogTitle className={`text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-3 text-center ${spaceGrotesk.className}`}>
+                        Add Direct Link
+                      </DialogTitle>
+                      <p className={`text-white/70 text-base leading-relaxed text-center ${spaceGrotesk.className}`}>
+                        Paste a YouTube video or Spotify track URL to add it instantly to the queue
+                      </p>
+                    </DialogHeader>
+                    <div className="space-y-6">
+                      <Input
+                        value={directUrl}
+                        onChange={(e) => setDirectUrl(e.target.value)}
+                        placeholder="Paste YouTube video URL or Spotify track URL..."
+                        className={`w-full py-3 px-4 bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white placeholder-white/50 text-base h-12 rounded-xl focus:border-green-400/50 focus:ring-1 focus:ring-green-400/20 ${spaceGrotesk.className}`}
+                        disabled={isAddingDirectUrl}
+                      />
+                      <div className="flex justify-end gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowDirectUrlDialog(false);
+                            setDirectUrl('');
+                          }}
+                          disabled={isAddingDirectUrl}
+                          className={`bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white hover:text-white text-base h-12 rounded-xl px-6 ${spaceGrotesk.className}`}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleAddDirectUrl}
+                          disabled={!directUrl.trim() || isAddingDirectUrl}
+                          className={`bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-base h-12 rounded-xl px-6 transition-all duration-300 shadow-lg hover:shadow-green-500/25 ${spaceGrotesk.className}`}
+                        >
+                          {isAddingDirectUrl && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                          Add to Queue
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Spotify Playlist Button */}
+              <Dialog open={showPlaylistDialog} onOpenChange={setShowPlaylistDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-purple-500/20 border-purple-500/30 text-purple-300 hover:bg-purple-500/30 hover:text-purple-200 transition-all duration-200"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Playlist
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl p-0 max-w-md">
+                  <div className="p-8">
+                    <DialogHeader className="mb-8">
+                      <div className="flex items-center justify-center mb-4">
+                        <div className="p-3 bg-green-500/10 rounded-full border border-green-500/20">
+                          <SpotifyLogo className="w-8 h-8 text-green-500" />
+                        </div>
+                      </div>
+                      <DialogTitle className={`text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-3 text-center ${spaceGrotesk.className}`}>
+                        Add Spotify Playlist
+                      </DialogTitle>
+                      <p className={`text-white/70 text-base leading-relaxed text-center ${spaceGrotesk.className}`}>
+                        Import an entire Spotify playlist to the queue with optimized processing
+                      </p>
+                    </DialogHeader>
+                    <div className="space-y-6">
+                      <Input
+                        value={playlistUrl}
+                        onChange={(e) => setPlaylistUrl(e.target.value)}
+                        placeholder="Paste Spotify playlist URL..."
+                        className={`w-full py-3 px-4 bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white placeholder-white/50 text-base h-12 rounded-xl focus:border-green-400/50 focus:ring-1 focus:ring-green-400/20 ${spaceGrotesk.className}`}
+                        disabled={isProcessingPlaylist}
+                      />
+                      
+                      {/* Progress Display */}
+                      {playlistProgress && (
+                        <div className="space-y-3">
+                          <div className="flex justify-between text-sm">
+                            <span className={`text-white/80 ${spaceGrotesk.className}`}>{playlistProgress.status}</span>
+                            <span className={`text-white/60 ${spaceGrotesk.className}`}>
+                              {playlistProgress.total > 0 && 
+                                `${playlistProgress.current}/${playlistProgress.total}`
+                              }
+                            </span>
+                          </div>
+                          {playlistProgress.total > 0 && (
+                            <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                              <div 
+                                className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all duration-300 shadow-lg"
+                                style={{ width: `${playlistProgress.percentage}%` }}
+                              />
+                            </div>
+                          )}
+                          {playlistProgress.currentTrack && (
+                            <p className={`text-xs text-white/60 truncate ${spaceGrotesk.className}`}>
+                              Processing: {playlistProgress.currentTrack}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-end gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowPlaylistDialog(false);
+                            setPlaylistUrl('');
+                            setPlaylistProgress(null);
+                          }}
+                          disabled={isProcessingPlaylist}
+                          className={`bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white hover:text-white text-base h-12 rounded-xl px-6 ${spaceGrotesk.className}`}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleProcessSpotifyPlaylist}
+                          disabled={!playlistUrl.trim() || isProcessingPlaylist}
+                          className={`bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-base h-12 rounded-xl px-6 transition-all duration-300 shadow-lg hover:shadow-green-500/25 ${spaceGrotesk.className}`}
+                        >
+                          {isProcessingPlaylist && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                          Process Playlist
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+          
           <motion.div
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
@@ -795,6 +1196,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.4 }}
+            className="flex-shrink-0"
           >
             <div className="mb-3 sm:mb-4">
               <motion.h3 
@@ -812,7 +1214,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                 item={currentPlaying}
                 index={0}
                 isCurrentlyPlaying={true}
-                isAdmin={isAdmin}
+                isAdmin={adminStatus}
                 hasUserVoted={hasUserVoted(currentPlaying)}
                 onVote={() => handleVote(currentPlaying.id)}
                 onRemove={() => handleRemoveSong(currentPlaying.id)}
@@ -823,9 +1225,9 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
         )}
         </AnimatePresence>
 
-        <div className="space-y-3 sm:space-y-4">
+        <div className="space-y-3 sm:space-y-4 flex flex-col h-full flex-1 min-h-0">
         <motion.h3 
-          className="text-base sm:text-lg font-semibold text-white flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2"
+          className="text-base sm:text-lg font-semibold text-white flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-shrink-0"
           initial={{ x: -10, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
@@ -840,77 +1242,110 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           </motion.span>
         </motion.h3>
         
-        <AnimatePresence mode="popLayout">
-          {sortedQueue.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.4 }}
-            >
-              <Card className="bg-[#1C1E1F] border-[#424244]">
-                <CardContent className="py-8 sm:py-12 text-center text-gray-400">
-                  <motion.div 
-                    className="flex flex-col items-center gap-3 sm:gap-4"
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <motion.div
-                      animate={{ 
-                        rotate: [0, 5, -5, 0],
-                        scale: [1, 1.05, 1]
-                      }}
-                      transition={{ 
-                        duration: 4, 
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }}
-                    >
-                      <div className="text-gray-600">
-                        <PlayListIcon width={48} height={48} className="sm:w-16 sm:h-16 text-gray-600" />
-                      </div>
-                    </motion.div>
-                    <div>
-                      <p className="text-base sm:text-lg font-medium mb-2">No songs in queue</p>
-                      <p className="text-sm">Add some music to get the party started!</p>
-                    </div>
+        {/* Scrollable Queue Container */}
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 hover:scrollbar-thumb-gray-500 pr-1">
+          <AnimatePresence mode="popLayout">
+            {sortedQueue.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.4 }}
+              >
+                <Card className="bg-[#1C1E1F] border-[#424244]">
+                  <CardContent className="py-8 sm:py-12 text-center text-gray-400">
                     <motion.div 
-                      className="flex items-center gap-2 text-xs sm:text-sm"
-                      animate={{ opacity: [0.5, 1, 0.5] }}
-                      transition={{ duration: 2, repeat: Infinity }}
+                      className="flex flex-col items-center gap-3 sm:gap-4"
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.2 }}
                     >
-                      <div className="text-current">
-                        <SearchIcon width={14} height={14} className="sm:w-4 sm:h-4" />
+                      <motion.div
+                        animate={{ 
+                          rotate: [0, 5, -5, 0],
+                          scale: [1, 1.05, 1]
+                        }}
+                        transition={{ 
+                          duration: 4, 
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      >
+                        <div className="text-gray-600">
+                          <PlayListIcon width={48} height={48} className="sm:w-16 sm:h-16 text-gray-600" />
+                        </div>
+                      </motion.div>
+                      <div>
+                        <p className="text-base sm:text-lg font-medium mb-2">No songs in queue</p>
+                        <p className="text-sm">Add some music to get the party started!</p>
                       </div>
-                      <span className="text-center">Search and add your favorite tracks</span>
+                      <motion.div 
+                        className="flex items-center gap-2 text-xs sm:text-sm"
+                        animate={{ opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <div className="text-current">
+                          <SearchIcon width={14} height={14} className="sm:w-4 sm:h-4" />
+                        </div>
+                        <span className="text-center">Search and add your favorite tracks</span>
+                      </motion.div>
                     </motion.div>
-                  </motion.div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ) : (
-            <div className="space-y-2 sm:space-y-3">
-              {sortedQueue.map((item, index) => (
-                <SongCard
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  isCurrentlyPlaying={false}
-                  isAdmin={isAdmin}
-                  hasUserVoted={hasUserVoted(item)}
-                  onVote={() => handleVote(item.id)}
-                  onRemove={() => handleRemoveSong(item.id)}
-                  onPlayInstant={() => handlePlayInstant(item.id)}
-                />
-              ))}
-            </div>
-          )}
-        </AnimatePresence>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ) : (
+              <div className="space-y-2 sm:space-y-3 pb-2">
+                {sortedQueue.map((item, index) => (
+                  <SongCard
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    isCurrentlyPlaying={false}
+                    isAdmin={adminStatus}
+                    hasUserVoted={hasUserVoted(item)}
+                    onVote={() => handleVote(item.id)}
+                    onRemove={() => handleRemoveSong(item.id)}
+                    onPlayInstant={() => handlePlayInstant(item.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </motion.div>
     
     <style jsx>{`
+      /* Custom Scrollbar Styles */
+      .scrollbar-thin {
+        scrollbar-width: thin;
+        scrollbar-color: #4b5563 transparent;
+      }
+      
+      .scrollbar-thin::-webkit-scrollbar {
+        width: 6px;
+      }
+      
+      .scrollbar-thin::-webkit-scrollbar-track {
+        background: transparent;
+        border-radius: 3px;
+      }
+      
+      .scrollbar-thin::-webkit-scrollbar-thumb {
+        background: #4b5563;
+        border-radius: 3px;
+        transition: background-color 0.2s ease;
+      }
+      
+      .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+        background: #6b7280;
+      }
+      
+      /* Ensure smooth scrolling */
+      .scrollbar-thin {
+        scroll-behavior: smooth;
+      }
+
       .text-current svg path {
         stroke: currentColor !important;
       }
@@ -965,6 +1400,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           padding-right: 0 !important;
           margin-left: 0 !important;
           margin-right: 0 !important;
+          height: calc(100vh - 6rem) !important; /* Adjusted for mobile */
         }
         
         /* Ensure cards don't overflow */
@@ -992,6 +1428,11 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           width: 100% !important;
           max-width: 100% !important;
         }
+        
+        /* Mobile scrollbar adjustments */
+        .scrollbar-thin::-webkit-scrollbar {
+          width: 4px;
+        }
       }
 
       /* Force hardware acceleration for smoother animations */
@@ -1004,6 +1445,18 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       /* Prevent accidental zoom on double tap for specific elements only */
       button, [role="button"], .group {
         touch-action: manipulation !important;
+      }
+      
+      /* Admin-only queue card states */
+      .queue-card.cursor-not-allowed:hover {
+        transform: none !important;
+        background-color: #1C1E1F !important;
+        box-shadow: none !important;
+        ring: none !important;
+      }
+      
+      .queue-card.cursor-not-allowed:active {
+        transform: none !important;
       }
     `}</style>
   </div>

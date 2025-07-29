@@ -7,7 +7,6 @@ import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 import { spaceGrotesk } from '@/lib/font';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/app/components/ui/dialog';
 
 type AuthProvider = 'google';
 
@@ -22,12 +21,11 @@ interface SignInButtonProps {
   icon: React.ReactNode;
 }
 
-interface SignInDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface AuthCardProps {
   title?: string;
   description?: string;
   callbackURL?: string;
+  className?: string;
 }
 
 /**
@@ -89,36 +87,38 @@ const SignInButton = ({
 );
 
 /**
- * Modern SignIn Dialog component with NextAuth integration
+ * Standalone AuthCard component for sign-in pages
  */
-export default function SignInDialog({
-  isOpen,
-  onClose,
+export default function AuthCard({
   title = "Welcome to Deciball",
   description = "Sign in to create and join music spaces with your friends",
   callbackURL = "/",
-}: SignInDialogProps) {
+  className,
+}: AuthCardProps) {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-black/90 backdrop-blur-xl border border-white/20 text-white">
-        <DialogHeader>
-          <DialogTitle className={cn(
-            "text-2xl font-bold bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent",
+    <div className={cn(
+      "flex items-center justify-center",
+      className
+    )}>
+      <div className="w-full max-w-md bg-black/90 backdrop-blur-xl border border-white/20 p-8 rounded-2xl">
+        <div className="text-center mb-8">
+          <h2 className={cn(
+            "text-2xl font-bold bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent mb-3",
             spaceGrotesk.className
           )}>
             {title}
-          </DialogTitle>
-          <DialogDescription className={cn(
-            "text-white/70 text-base leading-relaxed mt-2",
+          </h2>
+          <p className={cn(
+            "text-white/70 text-base leading-relaxed",
             spaceGrotesk.className
           )}>
             {description}
-          </DialogDescription>
-        </DialogHeader>
+          </p>
+        </div>
 
-        <div className="space-y-4 mt-6">
+        <div className="space-y-4 mb-6">
           <SignInButton
             title="Google"
             provider="google"
@@ -143,7 +143,7 @@ export default function SignInDialog({
           </div>
         </div>
 
-        <div className="mt-6 text-center">
+        <div className="text-center">
           <p className={cn(
             "text-xs text-white/50 leading-relaxed",
             spaceGrotesk.className
@@ -165,7 +165,7 @@ export default function SignInDialog({
             .
           </p>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }

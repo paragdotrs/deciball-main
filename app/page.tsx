@@ -9,7 +9,7 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Loader2, Play } from "lucide-react";
 import BackgroundAnimation from "@/components/Background";
-import { signikaNegative, lexend, poppins } from "@/lib/font";
+import { signikaNegative, lexend, poppins, spaceGrotesk } from "@/lib/font";
 import axios from "axios";
 import GlitchText from "@/components/ui/glitch-text";
 import SignInDialog from "@/components/ui/SignInDialog";
@@ -160,7 +160,7 @@ export default function Page() {
                 initial="hidden"
                 animate="visible"
                 transition={{ duration: 0.8, delay: 0.2 }}
-                className={`${signikaNegative.className} text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl font-bold text-center text-white mb-3 sm:mb-4 lg:mb-6 leading-tight px-2 mobile-text-shadow`}
+                className={`${spaceGrotesk.className} text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl font-bold text-center text-white mb-3 sm:mb-4 lg:mb-6 leading-tight px-2 mobile-text-shadow`}
               >
                 Sync the Beat, Vote the Heat!
               </motion.h1>
@@ -396,8 +396,9 @@ export default function Page() {
       <SignInDialog
         isOpen={showSignInDialog}
         onClose={() => setShowSignInDialog(false)}
-        title="Sign In to Continue"
-        description="Create your music space and start jamming with friends!"
+        title="Welcome to Deciball"
+        description="Sign in to create and join music spaces with your friends!"
+        callbackURL="/"
       />
     </div>
   );

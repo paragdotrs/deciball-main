@@ -259,6 +259,21 @@ export default function SearchSongPopup({
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  
+  // Batch processing progress states
+  const [batchProgress, setBatchProgress] = useState<{
+    current: number;
+    total: number;
+    percentage: number;
+    currentTrack?: string;
+    status: string;
+  } | null>(null);
+  const [batchResults, setBatchResults] = useState<{
+    successful: number;
+    failed: number;
+    total: number;
+    details: Array<{ track: string; success: boolean; error?: string }>;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
   const { sendMessage, user: socketUser, socket } = useSocket();
@@ -306,8 +321,55 @@ export default function SearchSongPopup({
       setHasSearched(false);
       setLoadingTrackId(null);
       setAddingToQueue(false);
+      setBatchProgress(null);
+      setBatchResults(null);
     }
   }, [open]);
+
+  // Add event listeners for batch processing
+  useEffect(() => {
+    const handleBatchProcessingResult = (event: CustomEvent) => {
+      console.log('🎯 Batch processing result received in Search component:', event.detail);
+      
+      setBatchResults({
+        successful: event.detail.successful || 0,
+        failed: event.detail.failed || 0,
+        total: event.detail.results?.length || 0,
+        details: event.detail.results || []
+      });
+      
+      setBatchProgress(null);
+      setAddingToQueue(false);
+      
+      // Show success/error feedback
+      if (event.detail.successful > 0) {
+        console.log(`✅ Successfully added ${event.detail.successful} tracks to queue`);
+      }
+      if (event.detail.failed > 0) {
+        console.warn(`⚠️ ${event.detail.failed} tracks failed to process`);
+      }
+    };
+
+    const handleProcessingProgress = (event: CustomEvent) => {
+      console.log('📊 Processing progress received in Search component:', event.detail);
+      
+      setBatchProgress({
+        current: event.detail.current || 0,
+        total: event.detail.total || 0,
+        percentage: event.detail.percentage || 0,
+        currentTrack: event.detail.currentTrack || '',
+        status: event.detail.status || 'Processing...'
+      });
+    };
+
+    window.addEventListener('batch-processing-result', handleBatchProcessingResult as EventListener);
+    window.addEventListener('processing-progress', handleProcessingProgress as EventListener);
+
+    return () => {
+      window.removeEventListener('batch-processing-result', handleBatchProcessingResult as EventListener);
+      window.removeEventListener('processing-progress', handleProcessingProgress as EventListener);
+    };
+  }, []);
 
   const handleSearch = async () => {
     if (!query) {
@@ -471,43 +533,44 @@ export default function SearchSongPopup({
     setLoadingTrackId(track.id);
     setAddingToQueue(true);
     try {
-      console.log("Sending the fuckinnn Track ", track);
-      const response = await axios.post("/api/spotify/getTrack", track);
-      
-      if (!response.data?.body || response.data.body.length === 0) {
-        throw new Error("No search results found for this track");
-      }
-      
-      const searchResults = response.data.body;
+      console.log("🎵 Sending track metadata to backend worker pool:", track);
       
       if (!spaceId) {
         setError('Room ID not found. Please rejoin the room.');
         return;
       }
-      const success = await tryMultipleResults(searchResults, track, spaceId, true);
-      
+
+      // Send simplified track metadata - let backend worker pool handle YouTube search
+      const success = sendMessage('add-to-queue', {
+        spaceId,
+        userId: socketUser?.id,
+        autoPlay: true,
+        // Send track metadata for backend worker pool to process
+        trackData: {
+          title: track.name,
+          artist: track.artists?.map(a => a.name).join(', ') || 'Unknown Artist',
+          album: track.album?.name || '',
+          spotifyId: track.id,
+          spotifyUrl: track.external_urls?.spotify || '',
+          smallImg: track.album?.images?.[track.album?.images.length - 1]?.url || '',
+          bigImg: track.album?.images?.[0]?.url || '',
+          duration: 30000, // Default duration since Spotify API doesn't provide duration in search results
+          source: 'Spotify' // Backend will convert to YouTube
+        }
+      });
+
       if (success) {
+        console.log(`✅ Track metadata sent to backend worker pool for YouTube search and processing`);
         if (onSelect) {
           onSelect(track);
         }
         setOpen(false);
       } else {
-        throw new Error("Failed to add track - all video sources failed");
+        throw new Error("Failed to send track to backend worker pool");
       }
     } catch (error) {
-      
       if (error instanceof Error) {
-        if (error.message.includes('Invalid response structure')) {
-          setError('Failed to convert Spotify track to YouTube. Please try a different song.');
-        } else if (error.message.includes('Invalid YouTube video ID')) {
-          setError('Could not find a valid YouTube version of this song.');
-        } else if (error.message.includes('Invalid YouTube URL format')) {
-          setError('The YouTube video format is invalid. Please try a different song.');
-        } else if (error.message.includes('WebSocket')) {
-          setError('Connection lost. Please refresh the page and try again.');
-        } else {
-          setError(`Failed to add song: ${error.message}`);
-        }
+        setError(`Failed to add song: ${error.message}`);
       } else {
         setError('Failed to add the selected track to queue');
       }
@@ -527,36 +590,34 @@ export default function SearchSongPopup({
         return;
       }
 
-      const results = [];
-      let trackIndex = 0;
-      for (const track of selectedTracks) {
-        try {
-          console.log("Processing track:", track);
-          const response = await axios.post("/api/spotify/getTrack", track);
-          const searchResults = response.data.body; 
-          
-          if (!searchResults || searchResults.length === 0) {
-            results.push({ track: track.name, success: false, error: "No search results" });
-            continue;
-          }
-          
-          const shouldAutoPlay = trackIndex === 0;
-          
-          const success = await tryMultipleResults(searchResults, track, spaceId, shouldAutoPlay);
-          results.push({ track: track.name, success, error: success ? null : "All video sources failed" });
-          
-          trackIndex++;
-          
-          await new Promise(resolve => setTimeout(resolve, 300));
-        } catch (error) {
-          results.push({ track: track.name, success: false, error: error instanceof Error ? error.message : "Unknown error" });
-          trackIndex++;
-        }
+      // Send simplified track metadata for backend worker pool processing
+      console.log(`🚀 Sending ${selectedTracks.length} tracks metadata to backend worker pool for YouTube search and processing`);
+      
+      const songsForBatch = selectedTracks.map((track) => ({
+        title: track.name,
+        artist: track.artists?.map(a => a.name).join(', ') || 'Unknown Artist',
+        album: track.album?.name || '',
+        spotifyId: track.id,
+        spotifyUrl: track.external_urls?.spotify || '',
+        smallImg: track.album?.images?.[track.album?.images.length - 1]?.url || '',
+        bigImg: track.album?.images?.[0]?.url || '',
+        duration: 30000, // Default duration since Spotify API doesn't provide duration in search results
+        source: 'Spotify' // Backend worker pool will convert to YouTube
+      }));
+
+      // Send batch request to backend worker pool
+      const batchSent = sendMessage('add-batch-to-queue', {
+        spaceId,
+        songs: songsForBatch,
+        userId: socketUser?.id,
+        autoPlay: true // Auto-play first successful song
+      });
+
+      if (!batchSent) {
+        throw new Error('Failed to send batch request to server');
       }
 
-      const successful = results.filter(r => r.success).length;
-      const failed = results.filter(r => !r.success).length;
-      console.log(`Batch complete: ${successful} successful, ${failed} failed`);
+      console.log(`✅ Batch request sent: ${songsForBatch.length} track metadata sent to backend worker pool`);
 
       if (onBatchSelect) {
         onBatchSelect(selectedTracks);
@@ -646,6 +707,63 @@ export default function SearchSongPopup({
                 </div>
               </div>
             </div>
+
+            {/* Batch Processing Progress UI */}
+            {batchProgress && (
+              <div className="mt-3 sm:mt-4 bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-xl p-4 backdrop-blur-sm border border-blue-500/20">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-blue-200">
+                    Processing Batch ({batchProgress.current}/{batchProgress.total})
+                  </span>
+                  <span className="text-sm text-blue-300">
+                    {Math.round(batchProgress.percentage)}%
+                  </span>
+                </div>
+                
+                <div className="w-full bg-blue-900/20 rounded-full h-2 mb-2">
+                  <div 
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${batchProgress.percentage}%` }}
+                  />
+                </div>
+                
+                {batchProgress.currentTrack && (
+                  <div className="text-xs text-blue-300/80 truncate">
+                    {batchProgress.status}: {batchProgress.currentTrack}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Batch Results Summary */}
+            {batchResults && !batchProgress && (
+              <div className="mt-3 sm:mt-4 bg-gradient-to-r from-green-900/30 to-red-900/30 rounded-xl p-4 backdrop-blur-sm border border-zinc-600/20">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-zinc-200">
+                    Batch Processing Complete
+                  </span>
+                  <button 
+                    onClick={() => setBatchResults(null)}
+                    className="text-zinc-400 hover:text-zinc-200 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                
+                <div className="flex gap-4 text-sm">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                    <span className="text-green-300">{batchResults.successful} successful</span>
+                  </div>
+                  {batchResults.failed > 0 && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-red-400"></div>
+                      <span className="text-red-300">{batchResults.failed} failed</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             
             {enableBatchSelection && isAdmin && hasSearched && results.length > 0 && (
               <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gradient-to-r from-zinc-800/50 to-zinc-700/50 rounded-xl p-3 sm:p-4 backdrop-blur-sm border border-zinc-600/30 gap-3 sm:gap-0">

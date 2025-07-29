@@ -134,6 +134,13 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
       connectionAttempts++;
       console.log(`Creating WebSocket connection (attempt ${connectionAttempts}/${maxRetries}) to:`, process.env.NEXT_PUBLIC_WSS_URL);
 
+      if (!process.env.NEXT_PUBLIC_WSS_URL) {
+        console.error("NEXT_PUBLIC_WSS_URL is not defined");
+        setConnectionError(true);
+        setLoading(false);
+        return;
+      }
+
       try {
         const ws = new WebSocket(process.env.NEXT_PUBLIC_WSS_URL as string);
         
@@ -156,6 +163,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
           console.log("WebSocket Connected successfully");
           setSocket(ws);
           
+          console.log("Fetching WebSocket token...");
           const wsToken = await getWebSocketToken();
           console.log("WebSocket token:", wsToken ? "Present" : "Missing");
           
@@ -179,6 +187,8 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
           setLoading(false);
           setConnectionError(false);
           connectionAttempts = 0;
+          
+          console.log("WebSocket setup complete, ready to send messages");
           
           // Add latency reporting event listener
           const handleLatencyReport = (event: CustomEvent) => {
@@ -223,6 +233,46 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                 break;
               case "queue-update":
                 console.log("Queue update received:", message.data);
+                break;
+              case "batch-processing-result":
+                // Handle optimized batch processing results
+                console.log("🚀 Batch processing result received:", message.data);
+                
+                // Dispatch event for Search component to handle results
+                window.dispatchEvent(new CustomEvent('batch-processing-result', {
+                  detail: {
+                    results: message.data.results,
+                    summary: message.data.summary,
+                    successful: message.data.successful,
+                    failed: message.data.failed,
+                    processingTime: message.data.processingTime
+                  }
+                }));
+                
+                // Show notification about batch results
+                if (message.data.summary) {
+                  const { successful, failed, total } = message.data.summary;
+                  if (successful > 0) {
+                    console.log(`✅ Batch complete: ${successful}/${total} tracks added successfully`);
+                  }
+                  if (failed > 0) {
+                    console.warn(`⚠️ ${failed}/${total} tracks failed to process`);
+                  }
+                }
+                break;
+              case "processing-progress":
+                // Handle real-time processing progress updates
+                console.log("📊 Processing progress:", message.data);
+                
+                window.dispatchEvent(new CustomEvent('processing-progress', {
+                  detail: {
+                    current: message.data.current,
+                    total: message.data.total,
+                    percentage: message.data.percentage,
+                    currentTrack: message.data.currentTrack,
+                    status: message.data.status
+                  }
+                }));
                 break;
               case "room-joined":
                 console.log("Room joined event received:", message.data);

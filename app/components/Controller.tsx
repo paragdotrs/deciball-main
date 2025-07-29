@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Heart,
   MoreHorizontal
@@ -15,21 +15,21 @@ import {
   LessVolumeIcon
 } from '@/components/icons';
 import { useAudio } from '@/store/audioStore';
+import { useUserStore } from '@/store/userStore';
 import VolumeBar from '@/components/VolumeBar';
 import { inter, outfit } from '@/lib/font';
+import { useSocket } from '@/context/socket-context';
 
 interface AudioControllerProps {
   customTogglePlayPause?: () => void;
   spaceId?: string;
   userId?: string;
-  isAdmin?: boolean; // Add admin permission check
 }
 
 const AudioController: React.FC<AudioControllerProps> = ({ 
   customTogglePlayPause,
   spaceId,
-  userId,
-  isAdmin = false
+  userId
 }) => {
   const {
     isPlaying,
@@ -46,10 +46,160 @@ const AudioController: React.FC<AudioControllerProps> = ({
     seek,
     setVolume
   } = useAudio();
+  const { isAdmin } = useUserStore();
+  const { socket, sendMessage } = useSocket();
   const playerRef = useRef<any>(null);
   console.log("IS Playing :::>>", isPlaying)
 
-  const handleTogglePlayPause = () => {
+  // Enhanced progress bar interaction state with seek protection
+  const [isDragging, setIsDragging] = useState(false);
+  const [tempProgress, setTempProgress] = useState(0);
+  const [isSeeking, setIsLocalSeeking] = useState(false);
+  const [lastSeekTime, setLastSeekTime] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [seekingProgress, setSeekingProgress] = useState<number | null>(null);
+  const [ignoreSync, setIgnoreSync] = useState(false);
+
+  // Additional state for desktop features
+  const [isLiked, setIsLiked] = useState(false);
+  const [isShuffled, setIsShuffled] = useState(false);
+  const [repeatMode, setRepeatMode] = useState(0);
+  const [isProgressActive, setIsProgressActive] = useState(false);
+
+  // Debounced seeking for smoother drag experience
+  const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Memoized values to prevent unnecessary recalculations
+  const displayProgress = useMemo(() => {
+    if (isDragging) {
+      return tempProgress;
+    }
+    if (seekingProgress !== null) {
+      return (seekingProgress / duration) * 100;
+    }
+    return (progress / duration) * 100;
+  }, [isDragging, tempProgress, seekingProgress, duration, progress]);
+
+  const displayTime = useMemo(() => {
+    if (isDragging) {
+      return (tempProgress / 100) * duration;
+    }
+    if (seekingProgress !== null) {
+      return seekingProgress;
+    }
+    return progress;
+  }, [isDragging, tempProgress, seekingProgress, duration, progress]);
+
+  // Memoized format time function
+  const formatTime = useCallback((seconds: any) => {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    // Round to avoid glitchy decimal seconds in display
+    const roundedSeconds = Math.floor(seconds);
+    const mins = Math.floor(roundedSeconds / 60);
+    const secs = roundedSeconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }, []);
+
+  // Debounced seek function for smoother seeking during drag
+  const debouncedSeek = useCallback((newTime: number) => {
+    if (seekTimeoutRef.current) {
+      clearTimeout(seekTimeoutRef.current);
+    }
+    
+    seekTimeoutRef.current = setTimeout(() => {
+      const currentTime = Date.now();
+      if (currentTime - lastSeekTime > 100) {
+        seek(newTime);
+        setLastSeekTime(currentTime);
+      }
+    }, 50); // 50ms debounce for smooth seeking
+  }, [seek, lastSeekTime]);
+
+  // Cleanup debounced seek on unmount
+  useEffect(() => {
+    return () => {
+      if (seekTimeoutRef.current) {
+        clearTimeout(seekTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Enhanced WebSocket message handling with seek protection - optimized with useCallback
+  const handleWebSocketMessage = useCallback((event: MessageEvent) => {
+    try {
+      const message = JSON.parse(event.data);
+      
+      switch (message.type) {
+        case 'playback-sync':
+          // Ignore sync messages during and shortly after seeking
+          if (ignoreSync || isSeeking || isDragging) {
+            console.log('[Sync] Ignoring sync during seek operation');
+            return;
+          }
+          
+          const { currentTime, isPlaying: serverPlaying } = message.data;
+          const expectedTime = serverPlaying ? currentTime : progress;
+          const timeDiff = Math.abs(expectedTime - progress);
+          
+          // Only sync if drift is significant and we're not seeking
+          // Increased threshold to 5 seconds to reduce interruptions during seeking
+          if (timeDiff > 5) {
+            console.log('[Sync] Correcting time drift:', { 
+              expected: expectedTime, 
+              current: progress, 
+              diff: timeDiff 
+            });
+            
+            setIsSyncing(true);
+            seek(expectedTime);
+            setTimeout(() => setIsSyncing(false), 300); // Reduced sync duration
+          }
+          break;
+
+        case 'playback-play':
+          if (!isPlaying && !isSeeking) {
+            togglePlayPause();
+          }
+          break;
+
+        case 'playback-pause':
+          if (isPlaying && !isSeeking) {
+            togglePlayPause();
+          }
+          break;
+
+        case 'playback-seek':
+          // Only process external seek commands if we're not currently seeking
+          if (!isSeeking && !isDragging) {
+            const { seekTime } = message.data;
+            setSeekingProgress(seekTime);
+            seek(seekTime);
+            
+            // Clear the seeking progress after a short delay
+            setTimeout(() => {
+              setSeekingProgress(null);
+            }, 1000);
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('[Controller] Error parsing WebSocket message:', error);
+    }
+  }, [ignoreSync, isSeeking, isDragging, progress, isPlaying, seek, togglePlayPause]);
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.addEventListener('message', handleWebSocketMessage);
+    return () => socket.removeEventListener('message', handleWebSocketMessage);
+  }, [socket, handleWebSocketMessage]);
+
+  // Optimized control handlers with useCallback
+  const handleTogglePlayPause = useCallback(() => {
+    if (!isAdmin) {
+      console.log('[AudioController] Play/Pause action denied - user is not admin');
+      return;
+    }
+    
     console.log('[AudioController] handleTogglePlayPause called');
     console.log('[AudioController] customTogglePlayPause provided:', !!customTogglePlayPause);
     
@@ -58,41 +208,41 @@ const AudioController: React.FC<AudioControllerProps> = ({
     } else {
       togglePlayPause();
     }
-  };
+  }, [isAdmin, customTogglePlayPause, togglePlayPause]);
 
-  const handlePlayPauseClick = (e: any) => {
+  const handlePlayNext = useCallback(() => {
+    if (!isAdmin) {
+      console.log('[AudioController] Play Next action denied - user is not admin');
+      return;
+    }
+    playNext();
+  }, [isAdmin, playNext]);
+
+  const handlePlayPrev = useCallback(() => {
+    if (!isAdmin) {
+      console.log('[AudioController] Play Previous action denied - user is not admin');
+      return;
+    }
+    playPrev();
+  }, [isAdmin, playPrev]);
+
+  const handlePlayPauseClick = useCallback((e: any) => {
     e.preventDefault();
     e.stopPropagation();
     console.log('[AudioController] Play/Pause button clicked/touched');
     handleTogglePlayPause();
-  };
+  }, [handleTogglePlayPause]);
 
-  // Simple unified click handler that works on both desktop and mobile
-  const handleClick = (callback: () => void) => (e: any) => {
+  const handleClick = useCallback((callback: () => void) => (e: any) => {
     e.preventDefault();
     e.stopPropagation();
     callback();
-  };
-
-  const [isDragging, setIsDragging] = useState(false);
-  const [tempProgress, setTempProgress] = useState(0);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isShuffled, setIsShuffled] = useState(false);
-  const [repeatMode, setRepeatMode] = useState(0);
-  const [isSeeking, setIsLocalSeeking] = useState(false);
-  const [lastSeekTime, setLastSeekTime] = useState(0);
-
-  const formatTime = (seconds: any) => {
-    if (!seconds || isNaN(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
   const progressBarRef = useRef<HTMLDivElement>(null);
-  const [isProgressActive, setIsProgressActive] = useState(false);
 
-  const getEventPosition = (e: any) => {
+  // Memoized event position handler
+  const getEventPosition = useCallback((e: any) => {
     // Handle both mouse and touch events
     if (e.touches && e.touches.length > 0) {
       return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
@@ -100,37 +250,36 @@ const AudioController: React.FC<AudioControllerProps> = ({
       return { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY };
     }
     return { clientX: e.clientX, clientY: e.clientY };
-  };
+  }, []);
 
-  const calculateProgress = (e: any) => {
+  // Memoized progress calculation
+  const calculateProgress = useCallback((e: any) => {
     if (!progressBarRef.current) return 0;
     
     const rect = progressBarRef.current.getBoundingClientRect();
     const position = getEventPosition(e);
     const percent = ((position.clientX - rect.left) / rect.width) * 100;
     return Math.max(0, Math.min(100, percent));
-  };
+  }, [getEventPosition]);
 
-  const handleProgressStart = (e: any) => {
+  // Optimized progress handlers with useCallback
+  const handleProgressStart = useCallback((e: any) => {
     if (!isAdmin) return;
     
     e.preventDefault();
     e.stopPropagation();
     
+    // Set seeking state immediately to prevent sync conflicts
+    setIgnoreSync(true);
     setIsDragging(true);
     setIsProgressActive(true);
     
     const percent = calculateProgress(e);
     setTempProgress(percent);
-    
-    // Add visual feedback immediately
-    if (progressBarRef.current) {
-      progressBarRef.current.style.transform = 'scaleY(1.5)';
-      progressBarRef.current.style.transition = 'transform 0.1s ease';
-    }
-  };
+    setSeekingProgress((percent / 100) * duration);
+  }, [isAdmin, calculateProgress, duration]);
 
-  const handleProgressMove = (e: any) => {
+  const handleProgressMove = useCallback((e: any) => {
     if (!isDragging || !progressBarRef.current || !isAdmin) return;
     
     e.preventDefault();
@@ -138,9 +287,13 @@ const AudioController: React.FC<AudioControllerProps> = ({
     
     const percent = calculateProgress(e);
     setTempProgress(percent);
-  };
+    
+    // Only update visual seeking progress, don't actually seek during drag
+    const newTime = (percent / 100) * duration;
+    setSeekingProgress(newTime);
+  }, [isDragging, isAdmin, calculateProgress, duration]);
 
-  const handleProgressEnd = (e?: any) => {
+  const handleProgressEnd = useCallback((e?: any) => {
     if (!isDragging || !isAdmin) return;
     
     if (e) {
@@ -151,26 +304,51 @@ const AudioController: React.FC<AudioControllerProps> = ({
     const newTime = (tempProgress / 100) * duration;
     const currentTime = Date.now();
     
-    // Throttle seeking to prevent too many rapid calls
-    if (currentTime - lastSeekTime > 100) {
+    // Enhanced throttling and smoother seeking
+    if (currentTime - lastSeekTime > 200) { // Increased throttle to 200ms for smoother experience
       setIsLocalSeeking(true);
-      setTimeout(() => setIsLocalSeeking(false), 1500);
       
+      // Store current playing state to restore after seek
+      const wasPlaying = isPlaying;
+      
+      // Perform the actual seek with smoother timing
       seek(newTime);
       setLastSeekTime(currentTime);
+      
+      // Reduced clearing delays for smoother experience
+      setTimeout(() => {
+        setIsLocalSeeking(false);
+        setSeekingProgress(null);
+        
+        // Ensure playback resumes if it was playing before seek
+        if (wasPlaying && !isPlaying) {
+          // Small delay to ensure seek is complete
+          setTimeout(() => {
+            if (customTogglePlayPause) {
+              customTogglePlayPause();
+            } else {
+              togglePlayPause();
+            }
+          }, 100);
+        }
+      }, 300); // Reduced from 800ms
+      
+      setTimeout(() => {
+        setIgnoreSync(false);
+      }, 600); // Reduced from 1200ms
+    } else {
+      // If throttled, still clear the states quickly
+      setTimeout(() => {
+        setIgnoreSync(false);
+        setSeekingProgress(null);
+      }, 200); // Reduced from 500ms
     }
     
     setIsDragging(false);
     setIsProgressActive(false);
-    
-    // Reset visual feedback
-    if (progressBarRef.current) {
-      progressBarRef.current.style.transform = 'scaleY(1)';
-      progressBarRef.current.style.transition = 'transform 0.2s ease';
-    }
-  };
+  }, [isDragging, isAdmin, tempProgress, duration, lastSeekTime, seek, isPlaying, customTogglePlayPause, togglePlayPause]);
 
-  const handleProgressClick = (e: any) => {
+  const handleProgressClick = useCallback((e: any) => {
     if (!isAdmin || isDragging) return;
     
     e.preventDefault();
@@ -180,72 +358,136 @@ const AudioController: React.FC<AudioControllerProps> = ({
     const newTime = (percent / 100) * duration;
     const currentTime = Date.now();
     
-    // Throttle seeking for clicks too
-    if (currentTime - lastSeekTime > 100) {
+    // Set seeking state to prevent sync conflicts
+    setIgnoreSync(true);
+    setSeekingProgress(newTime);
+    
+    // Throttle seeking for clicks with optimized timing
+    if (currentTime - lastSeekTime > 200) { // Increased throttle for smoother clicks
       setIsLocalSeeking(true);
-      setTimeout(() => setIsLocalSeeking(false), 1500);
+      
+      // Store current playing state
+      const wasPlaying = isPlaying;
       
       seek(newTime);
       setLastSeekTime(currentTime);
       
-      // Visual feedback for click
+      // Visual feedback for click with reduced duration
       setTempProgress(percent);
-      setTimeout(() => setTempProgress(0), 100);
+      setTimeout(() => setTempProgress(0), 50); // Reduced visual feedback duration
+      
+      // Clear seeking states with optimized timing
+      setTimeout(() => {
+        setIsLocalSeeking(false);
+        setSeekingProgress(null);
+        
+        // Restore playback if needed
+        if (wasPlaying && !isPlaying) {
+          setTimeout(() => {
+            if (customTogglePlayPause) {
+              customTogglePlayPause();
+            } else {
+              togglePlayPause();
+            }
+          }, 100);
+        }
+      }, 300); // Reduced from 800ms
+      
+      setTimeout(() => {
+        setIgnoreSync(false);
+      }, 600); // Reduced from 1200ms
+    } else {
+      // If throttled, clear states quickly
+      setTimeout(() => {
+        setIgnoreSync(false);
+        setSeekingProgress(null);
+      }, 200); // Reduced from 500ms
     }
-  };
+  }, [isAdmin, isDragging, calculateProgress, duration, lastSeekTime, seek, isPlaying, customTogglePlayPause, togglePlayPause]);
 
-  const toggleMute = () => {
+  // Optimized toggle mute with useCallback
+  const toggleMute = useCallback(() => {
     if (isMuted) {
       unmute();
     } else {
       mute();
     }
-  };
+  }, [isMuted, unmute, mute]);
+
+  // Optimized keyboard handler with useCallback
+  const handleKeyPress = useCallback((e: any) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    switch (e.key) {
+      case ' ':
+        e.preventDefault();
+        handleTogglePlayPause();
+        break;
+      case 'ArrowLeft':
+        if (e.ctrlKey) {
+          e.preventDefault();
+          handlePlayPrev();
+        } else {
+          if (isAdmin) {
+            const newTime = Math.max(0, displayTime - 10);
+            setIgnoreSync(true);
+            setSeekingProgress(newTime);
+            debouncedSeek(newTime);
+            
+            setTimeout(() => {
+              setSeekingProgress(null);
+            }, 400);
+            
+            setTimeout(() => {
+              setIgnoreSync(false);
+            }, 800);
+          }
+        }
+        break;
+      case 'ArrowRight':
+        if (e.ctrlKey) {
+          e.preventDefault();
+          handlePlayNext();
+        } else {
+          if (isAdmin) {
+            const newTime = Math.min(duration, displayTime + 10);
+            setIgnoreSync(true);
+            setSeekingProgress(newTime);
+            debouncedSeek(newTime);
+            
+            setTimeout(() => {
+              setSeekingProgress(null);
+            }, 400);
+            
+            setTimeout(() => {
+              setIgnoreSync(false);
+            }, 800);
+          }
+        }
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setVolume(Math.min(1, volume + 0.1));
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        setVolume(Math.max(0, volume - 0.1));
+        break;
+      case 'm':
+        toggleMute();
+        break;
+    }
+  }, [handleTogglePlayPause, handlePlayNext, handlePlayPrev, debouncedSeek, displayTime, duration, volume, toggleMute, setVolume, isAdmin]);
 
   useEffect(() => {
-    const handleKeyPress = (e : any) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      
-      switch (e.key) {
-        case ' ':
-          e.preventDefault();
-          handleTogglePlayPause();
-          break;
-        case 'ArrowLeft':
-          if (e.ctrlKey) {
-            e.preventDefault();
-            playPrev();
-          } else {
-            const newTime = Math.max(0, progress - 10);
-            seek(newTime);
-          }
-          break;
-        case 'ArrowRight':
-          if (e.ctrlKey) {
-            e.preventDefault();
-            playNext();
-          } else {
-            const newTime = Math.min(duration, progress + 10);
-            seek(newTime);
-          }
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          setVolume(Math.min(1, volume + 0.1));
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          setVolume(Math.max(0, volume - 0.1));
-          break;
-        case 'm':
-          toggleMute();
-          break;
-      }
-    };
-
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [handleTogglePlayPause, playNext, playPrev, seek, progress, duration, volume, toggleMute, setVolume]);
+  }, [handleKeyPress]);
+
+  // Memoized like toggle handler
+  const handleLikeToggle = useCallback(() => {
+    setIsLiked(prev => !prev);
+  }, []);
 
   useEffect(() => {
     if (isDragging) {
@@ -298,26 +540,46 @@ const AudioController: React.FC<AudioControllerProps> = ({
     );
   }
 
-  const progressPercent = isDragging ? tempProgress : (progress / duration) * 100;
+  // Calculate the display progress with proper seeking state handling
+  const getDisplayProgress = () => {
+    if (isDragging) {
+      return tempProgress;
+    }
+    if (seekingProgress !== null) {
+      return (seekingProgress / duration) * 100;
+    }
+    return (progress / duration) * 100;
+  };
+
+  // Calculate the display time for the progress label
+  const getDisplayTime = () => {
+    if (isDragging) {
+      return (tempProgress / 100) * duration;
+    }
+    if (seekingProgress !== null) {
+      return seekingProgress;
+    }
+    return progress;
+  };
 
   return (
     <div className="bg-gradient-to-r from-[#1C1E1F] via-[#1C1E1F] to-[#1C1E1F] border-t border-[#424244] rounded-xl p-3 sm:p-4 shadow-2xl">
       <div className="max-w-6xl mx-auto">
         <div className="mb-3 sm:mb-4">
           <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-400 mb-1">
-            <span className="text-xs sm:text-sm">{formatTime(progress)}</span>
+            <span className="text-xs sm:text-sm">{formatTime(displayTime)}</span>
             <div 
               ref={progressBarRef}
               data-progress-bar
-              className={`flex-1 bg-gray-600 rounded-full relative group transition-all duration-200 select-none ${
+              className={`flex-1 bg-gray-600 rounded-full relative group select-none ${
                 isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
               } ${
-                isSeeking ? 'ring-2 ring-gray-400 ring-opacity-50' : ''
+                isSyncing ? 'ring-2 ring-blue-400 ring-opacity-70' : ''
               } ${
                 isDragging || isProgressActive ? 'ring-2 ring-white ring-opacity-30' : ''
               }`}
               style={{
-                height: isDragging || isProgressActive ? '6px' : '4px',
+                height: '4px',
                 touchAction: 'none', // Prevent default touch behaviors
                 WebkitTapHighlightColor: 'transparent',
                 userSelect: 'none'
@@ -326,39 +588,38 @@ const AudioController: React.FC<AudioControllerProps> = ({
               onTouchStart={handleProgressStart}
               onClick={handleProgressClick}
               title={
+                isSyncing ? 'Syncing with other users...' :
                 isSeeking ? 'Seeking...' : 
                 isAdmin ? 'Drag to seek (Admin only)' : 'Only admin can seek'
               }
             >
               <div 
-                className={`bg-gradient-to-r from-gray-300 to-white rounded-full relative transition-all duration-100 ${
-                  isDragging ? 'transition-none' : ''
+                className={`bg-gradient-to-r from-gray-300 to-white rounded-full relative ${
+                  isDragging ? '' : ''
                 } ${
-                  isSeeking ? 'animate-pulse' : ''
+                  isSeeking ? '' : ''
+                } ${
+                  isSyncing ? 'bg-gradient-to-r from-blue-300 to-blue-100' : ''
                 } ${
                   isProgressActive ? 'shadow-lg' : ''
                 }`}
                 style={{ 
                   height: '100%',
-                  width: `${progressPercent}%`,
-                  willChange: 'width'
+                  width: `${displayProgress}%`,
                 }}
               >
                 {/* Enhanced progress thumb for mobile */}
                 <div 
-                  className={`absolute right-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full shadow-lg transition-all duration-150 ${
-                    isDragging || isSeeking || (isAdmin && progressPercent > 0) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  className={`absolute right-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full shadow-lg ${
+                    isDragging || isSeeking || (isAdmin && displayProgress > 0) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                   } ${
-                    isDragging || isProgressActive ? 'scale-125' : 'scale-100'
-                  } ${
-                    isSeeking ? 'ring-2 ring-gray-400 ring-opacity-50 animate-pulse' : ''
-                  }`}
+                    isDragging || isProgressActive ? '' : ''
+                  } `}
                   style={{
-                    width: isDragging || isProgressActive ? '16px' : '12px',
-                    height: isDragging || isProgressActive ? '16px' : '12px',
-                    marginRight: isDragging || isProgressActive ? '-8px' : '-6px',
+                    width: '12px',
+                    height: '12px',
+                    marginRight: '-6px',
                     touchAction: 'none',
-                    willChange: 'transform, width, height'
                   }}
                 />
               </div>
@@ -383,10 +644,13 @@ const AudioController: React.FC<AudioControllerProps> = ({
           {/* Main Controls Row */}
           <div className="flex items-center justify-center gap-2">
             <button
-              onClick={handleClick(playPrev)}
+              onClick={handleClick(handlePlayPrev)}
               style={{ touchAction: 'manipulation' }}
-              className={`p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className}`}
-              title="Previous"
+              className={`p-2 transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className} ${
+                isAdmin ? 'text-gray-300 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              }`}
+              title={isAdmin ? "Previous" : "Previous (Admin only)"}
+              disabled={!isAdmin}
             >
               <div className="text-current">
                 <PreviousIcon width={16} height={16} />
@@ -395,12 +659,27 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
             <button
               onClick={handleClick(() => {
-                const newTime = Math.max(0, progress - 10);
-                seek(newTime);
+                if (isAdmin) {
+                  const newTime = Math.max(0, displayTime - 10);
+                  setIgnoreSync(true);
+                  setSeekingProgress(newTime);
+                  debouncedSeek(newTime);
+                  
+                  setTimeout(() => {
+                    setSeekingProgress(null);
+                  }, 400);
+                  
+                  setTimeout(() => {
+                    setIgnoreSync(false);
+                  }, 800);
+                }
               })}
               style={{ touchAction: 'manipulation' }}
-              className={`p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className}`}
-              title="Back 10s"
+              className={`p-1 transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className} ${
+                isAdmin ? 'text-gray-400 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              }`}
+              title={isAdmin ? "Back 10s" : "Back 10s (Admin only)"}
+              disabled={!isAdmin}
             >
               <div className="text-current">
                 <BackTenSecondIcon width={14} height={14} />
@@ -410,8 +689,15 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <button
               onClick={handleClick(handleTogglePlayPause)}
               style={{ touchAction: 'manipulation' }}
-              className={`text-black p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[48px] min-h-[48px] active:scale-95 ${outfit.className} font-medium`}
-              title={isPlaying ? "Pause" : "Play"}
+              className={`p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[48px] min-h-[48px] active:scale-95 ${outfit.className} font-medium ${
+                isAdmin ? 'text-black cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              }`}
+              title={
+                isAdmin 
+                  ? (isPlaying ? "Pause" : "Play")
+                  : (isPlaying ? "Pause (Admin only)" : "Play (Admin only)")
+              }
+              disabled={!isAdmin}
             >
               {isPlaying ? (
                 <div className="text-black">
@@ -426,12 +712,27 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
             <button
               onClick={handleClick(() => {
-                const newTime = Math.min(duration, progress + 10);
-                seek(newTime);
+                if (isAdmin) {
+                  const newTime = Math.min(duration, displayTime + 10);
+                  setIgnoreSync(true);
+                  setSeekingProgress(newTime);
+                  debouncedSeek(newTime);
+                  
+                  setTimeout(() => {
+                    setSeekingProgress(null);
+                  }, 400);
+                  
+                  setTimeout(() => {
+                    setIgnoreSync(false);
+                  }, 800);
+                }
               })}
               style={{ touchAction: 'manipulation' }}
-              className={`p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className}`}
-              title="Forward 10s"
+              className={`p-1 transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className} ${
+                isAdmin ? 'text-gray-400 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              }`}
+              title={isAdmin ? "Forward 10s" : "Forward 10s (Admin only)"}
+              disabled={!isAdmin}
             >
               <div className="text-current">
                 <ForwardTenSecondIcon width={14} height={14} />
@@ -439,10 +740,13 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
 
             <button
-              onClick={handleClick(playNext)}
+              onClick={handleClick(handlePlayNext)}
               style={{ touchAction: 'manipulation' }}
-              className={`p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className}`}
-              title="Next"
+              className={`p-2 transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className} ${
+                isAdmin ? 'text-gray-300 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              }`}
+              title={isAdmin ? "Next" : "Next (Admin only)"}
+              disabled={!isAdmin}
             >
               <div className="text-current">
                 <NextIcon width={16} height={16} />
@@ -471,10 +775,13 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
           <div className="flex items-center gap-2 mx-6 justify-center">
             <button
-              onClick={handleClick(playPrev)}
+              onClick={handleClick(handlePlayPrev)}
               style={{ touchAction: 'manipulation' }}
-              className={`p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className}`}
-              title="Previous (Ctrl + ←)"
+              className={`p-2 transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className} ${
+                isAdmin ? 'text-gray-300 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              }`}
+              title={isAdmin ? "Previous (Ctrl + ←)" : "Previous (Admin only)"}
+              disabled={!isAdmin}
             >
               <div className="text-current">
                 <PreviousIcon width={20} height={20} />
@@ -483,12 +790,27 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
             <button
               onClick={handleClick(() => {
-                const newTime = Math.max(0, progress - 10);
-                seek(newTime);
+                if (isAdmin) {
+                  const newTime = Math.max(0, displayTime - 10);
+                  setIgnoreSync(true);
+                  setSeekingProgress(newTime);
+                  debouncedSeek(newTime);
+                  
+                  setTimeout(() => {
+                    setSeekingProgress(null);
+                  }, 400);
+                  
+                  setTimeout(() => {
+                    setIgnoreSync(false);
+                  }, 800);
+                }
               })}
               style={{ touchAction: 'manipulation' }}
-              className={`p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className}`}
-              title="Back 10 seconds"
+              className={`p-1 transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className} ${
+                isAdmin ? 'text-gray-400 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              }`}
+              title={isAdmin ? "Back 10 seconds" : "Back 10 seconds (Admin only)"}
+              disabled={!isAdmin}
             >
               <div className="text-current">
                 <BackTenSecondIcon width={16} height={16} />
@@ -498,8 +820,15 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <button
               onClick={handleClick(handleTogglePlayPause)}
               style={{ touchAction: 'manipulation' }}
-              className={`text-black p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[56px] min-h-[56px] active:scale-95 ${outfit.className} font-medium`}
-              title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+              className={`p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[56px] min-h-[56px] active:scale-95 ${outfit.className} font-medium ${
+                isAdmin ? 'text-black cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              }`}
+              title={
+                isAdmin 
+                  ? (isPlaying ? "Pause (Space)" : "Play (Space)")
+                  : (isPlaying ? "Pause (Admin only)" : "Play (Admin only)")
+              }
+              disabled={!isAdmin}
             >
               {isPlaying ? (
                 <div className="text-black">
@@ -514,12 +843,27 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
             <button
               onClick={handleClick(() => {
-                const newTime = Math.min(duration, progress + 10);
-                seek(newTime);
+                if (isAdmin) {
+                  const newTime = Math.min(duration, displayTime + 10);
+                  setIgnoreSync(true);
+                  setSeekingProgress(newTime);
+                  seek(newTime);
+                  
+                  setTimeout(() => {
+                    setSeekingProgress(null);
+                  }, 800);
+                  
+                  setTimeout(() => {
+                    setIgnoreSync(false);
+                  }, 1200);
+                }
               })}
               style={{ touchAction: 'manipulation' }}
-              className={`p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className}`}
-              title="Forward 10 seconds"
+              className={`p-1 transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className} ${
+                isAdmin ? 'text-gray-400 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              }`}
+              title={isAdmin ? "Forward 10 seconds" : "Forward 10 seconds (Admin only)"}
+              disabled={!isAdmin}
             >
               <div className="text-current">
                 <ForwardTenSecondIcon width={16} height={16} />
@@ -527,10 +871,13 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
 
             <button
-              onClick={handleClick(playNext)}
+              onClick={handleClick(handlePlayNext)}
               style={{ touchAction: 'manipulation' }}
-              className={`p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className}`}
-              title="Next (Ctrl + →)"
+              className={`p-2 transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className} ${
+                isAdmin ? 'text-gray-300 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              }`}
+              title={isAdmin ? "Next (Ctrl + →)" : "Next (Admin only)"}
+              disabled={!isAdmin}
             >
               <div className="text-current">
                 <NextIcon width={20} height={20} />
@@ -580,12 +927,10 @@ const AudioController: React.FC<AudioControllerProps> = ({
           -ms-user-select: none !important;
           user-select: none !important;
           touch-action: none !important;
-          will-change: transform, height !important;
         }
         
         /* Smooth progress bar animations */
         [data-progress-bar] > div {
-          will-change: width !important;
           backface-visibility: hidden !important;
           -webkit-backface-visibility: hidden !important;
           transform: translateZ(0) !important;
@@ -602,8 +947,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
           }
           
           [data-progress-bar]:active {
-            transform: scaleY(1.2) !important;
-            transition: transform 0.1s ease !important;
+            /* Removed animation */
           }
         }
         
@@ -615,13 +959,11 @@ const AudioController: React.FC<AudioControllerProps> = ({
           user-select: none !important;
           transform: translateZ(0) !important;
           -webkit-transform: translateZ(0) !important;
-          will-change: transform !important;
         }
         
         /* Enhanced mobile feedback with better performance */
         button:active {
-          transform: scale(0.95) translateZ(0) !important;
-          transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          /* Removed scale animation */
         }
         
         /* Icon color fixes */
@@ -648,6 +990,22 @@ const AudioController: React.FC<AudioControllerProps> = ({
           }
         }
 
+        /* Admin-only button states */
+        button:disabled {
+          cursor: not-allowed !important;
+          opacity: 0.5 !important;
+          pointer-events: auto !important;
+        }
+        
+        button:disabled:hover {
+          transform: none !important;
+          background-color: transparent !important;
+        }
+        
+        button:disabled:active {
+          transform: none !important;
+        }
+
         /* Disable text selection and highlight */
         * {
           -webkit-tap-highlight-color: transparent !important;
@@ -661,10 +1019,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
           -webkit-backface-visibility: hidden !important;
         }
         
-        /* Progress bar smooth dragging */
-        [data-progress-bar].dragging {
-          transition: none !important;
-        }
+      
         
         /* Improved mobile progress thumb */
         @media (max-width: 640px) {

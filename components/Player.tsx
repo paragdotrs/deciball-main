@@ -54,7 +54,7 @@ export const Player: React.FC<PlayerProps> = ({
   } = useAudio();
   
   const { socket, sendMessage } = useSocket();
-  const { user } = useUserStore();
+  const {   user } = useUserStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showListeners, setShowListeners] = useState(false);
   const [activeTab, setActiveTab] = useState<'cover'>('cover');
@@ -228,7 +228,7 @@ export const Player: React.FC<PlayerProps> = ({
           customTogglePlayPause={togglePlayPause}
           spaceId={spaceId}
           userId={user?.id}
-          isAdmin={isAdmin}
+          // isAdmin={isAdmin}
         />
       </motion.div>
     </motion.div>

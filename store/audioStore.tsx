@@ -328,12 +328,12 @@ interface AudioState {
   const skipCountRef = useRef(0);
   const lastEmittedTimeRef = useRef(0);
     
-  const { user, isAdminOnline } = useUserStore();
+  const { user,  } = useUserStore();
     
   const { socket: wsFromContext, sendMessage: sendMessageFromContext } = useSocket();
     
-  const ws = wsFromContext || useUserStore.getState().ws;
-    const emitMessage = sendMessageFromContext || useUserStore.getState().emitMessage;
+  const ws = wsFromContext
+    const emitMessage = sendMessageFromContext;
     
     const {
       isPlaying,
@@ -1154,11 +1154,11 @@ interface AudioState {
       
       const interval = setInterval(() => {
         if (!audioRef.current || audioRef.current.paused) return;
-        
-        if (isAdminOnline && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ 
-            type: "progress", 
-            data: audioRef.current.currentTime 
+
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: "progress",
+            data: audioRef.current.currentTime
           }));
         }
         
@@ -1180,7 +1180,7 @@ interface AudioState {
       }, 3000);
       
       return () => clearInterval(interval);
-    }, [currentVolume, isAdminOnline, ws]);
+    }, [currentVolume, ws]);
 
     useEffect(() => {
       const audioElement = audioRef.current;

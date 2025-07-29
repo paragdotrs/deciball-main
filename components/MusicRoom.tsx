@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '@/context/socket-context';
@@ -30,13 +30,12 @@ interface MusicRoomProps {
 
 export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   const { data: session } = useSession();
-  const { user, setUser } = useUserStore();
+  const { user, setUser, isAdmin, setIsAdmin } = useUserStore(); // Get isAdmin from store
   const { setVolume,  setCurrentSpaceId } = useAudio();
   const { sendMessage, socket, loading, connectionError } = useSocket();
   const router = useRouter();
   const isMobile = useIsMobile();
   
-  const [isAdmin, setIsAdmin] = useState(false);
   const [connectedUsers, setConnectedUsers] = useState(0);
   const [roomName, setRoomName] = useState('');
   const [showSearch, setShowSearch] = useState(false);
@@ -45,14 +44,23 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   const [userDetails, setUserDetails] = useState<any[]>([]);
   const [spaceInfo, setSpaceInfo] = useState<{ spaceName: string; hostId: string } | null>(null);
 
-  const getProfilePicture = () => {
+  // Memoized values to prevent unnecessary re-computations
+  const profilePicture = useMemo(() => {
     return user?.imageUrl || (session?.user as any)?.image || session?.user?.pfpUrl || null;
-  };
+  }, [user?.imageUrl, session?.user]);
 
-  const getUserInitials = () => {
-    const name =session?.user?.name|| "User Not Found";
+  const userInitials = useMemo(() => {
+    const name = session?.user?.name || "User Not Found";
     return name.charAt(0).toUpperCase();
-  };
+  }, [session?.user?.name]);
+
+  // Memoized admin status computation for faster access
+  const computedIsAdmin = useMemo(() => {
+    return Boolean(session?.user?.id && spaceInfo?.hostId && session.user.id === spaceInfo.hostId);
+  }, [session?.user?.id, spaceInfo?.hostId]);
+
+  const getProfilePicture = useCallback(() => profilePicture, [profilePicture]);
+  const getUserInitials = useCallback(() => userInitials, [userInitials]);
 
   const handleLogout = async () => {
     try {
@@ -62,143 +70,177 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     }
   };
 
-  useEffect(() => {
-    console.log('UserDetails state changed:', userDetails);
-    console.log('UserDetails length:', userDetails.length);
-  }, [userDetails]);
+  // Memoized fetch function with immediate admin check
+  const fetchSpaceInfo = useCallback(async () => {
+    if (!spaceId) return;
+    
+    try {
+      const response = await fetch(`/api/spaces?spaceId=${spaceId}`);
+      const data = await response.json();
+      console.log("Space Data ::", data);
+      
+      if (data.success) {
+        const spaceData = {
+          spaceName: data.spaceName,
+          hostId: data.hostId
+        };
+        
+        setSpaceInfo(spaceData);
+        setRoomName(data.spaceName);
+        
+        // Immediate admin check as soon as we have hostId - this is the fastest path
+        if (session?.user?.id && data.hostId) {
+          const userIsAdmin = session.user.id === data.hostId;
+          setIsAdmin(userIsAdmin);
+          console.log("[katana] Immediate admin status set from fetch:", userIsAdmin);
+        }
+      } else {
+        console.error('Failed to fetch space info:', data.message);
+        setRoomName("Unknown Space");
+      }
+    } catch (error) {
+      console.error('Error fetching space info:', error);
+      setRoomName("Unknown Space");
+    }
+  }, [spaceId, session?.user?.id, setIsAdmin]);
 
+  // Optimized initialization effect with parallel execution
+  useEffect(() => {
+    if (spaceId) {
+      console.log("[MusicRoom] Setting spaceId in audio store:", spaceId);
+      setCurrentSpaceId(spaceId);
+      
+      // Start fetching space info immediately without waiting
+      fetchSpaceInfo();
+    }
+  }, [spaceId, setCurrentSpaceId, fetchSpaceInfo]);
+
+  // Early admin detection effect - runs as soon as we have session data
+  useEffect(() => {
+    if (spaceInfo?.hostId && session?.user?.id && isAdmin !== computedIsAdmin) {
+      setIsAdmin(computedIsAdmin);
+      console.log("[katana] Fast computed admin status:", computedIsAdmin);
+    }
+  }, [computedIsAdmin, isAdmin, setIsAdmin, spaceInfo?.hostId, session?.user?.id]);
+
+  // User setup effect - optimized for faster admin detection
   useEffect(() => {
     if (session?.user && !user) {
       console.log("[katana] MusicRoom session user:", session.user);
       console.log("[katana] HostID", spaceInfo?.hostId);  
+      
+      // Determine admin status immediately if we have both pieces of data
+      const userRole = spaceInfo?.hostId && session.user.id === spaceInfo.hostId ? 'admin' : 'listener';
+      const userIsAdmin = userRole === 'admin';
+      
       setUser({
         id: session.user.id,
         email: session.user.email || '',
         name: (session.user as any).name || session.user.username || '',
         username: session.user.username || '',
         imageUrl: (session.user as any).image || '',
-       role: session.user.id === spaceInfo?.hostId ? 'admin' : 'listener',
+        role: userRole,
         token: (session.user as any).token || '',
         isBookmarked: '',
         spotifyAccessToken: (session.user as any).spotifyAccessToken,
         spotifyRefreshToken: (session.user as any).spotifyRefreshToken
       });
-    }
-     setIsAdmin(session?.user.id === spaceInfo?.hostId);
-
-
-     console.log("[katana] MusicRoom session user:", user);
-  }, [session, user, setUser]);
-
-  useEffect(() => {
-    if (spaceId) {
-      console.log("[MusicRoom] Setting spaceId in audio store:", spaceId);
-      setCurrentSpaceId(spaceId);
-    }
-  }, [spaceId, setCurrentSpaceId]);
-
-  useEffect(() => {
-    const fetchSpaceInfo = async () => {
-      try {
-        const response = await fetch(`/api/spaces?spaceId=${spaceId}`);
-        const data = await response.json();
-        console.log("Space Data ::", data)
-        if (data.success) {
-          setSpaceInfo({
-            spaceName: data.spaceName,
-            hostId: data.hostId
-          });
-          setRoomName(data.spaceName);
-        } else {
-          console.error('Failed to fetch space info:', data.message);
-          setRoomName("Unknown Space");
-        }
-      } catch (error) {
-        console.error('Error fetching space info:', error);
-        setRoomName("Unknown Space");
+      
+      // Set admin status immediately if we can determine it
+      if (spaceInfo?.hostId) {
+        setIsAdmin(userIsAdmin);
+        console.log("[katana] Admin status set during user creation:", userIsAdmin);
       }
-    };
-
-    if (spaceId) {
-      fetchSpaceInfo();
     }
-  }, [spaceId]);
 
-  const handleBatchAddToQueue = async (tracks: any[]) => {
+    // Fallback admin status update for cases where spaceInfo comes later
+    if (session?.user && user && spaceInfo?.hostId) {
+      const userIsAdmin = session.user.id === spaceInfo.hostId;
+      if (isAdmin !== userIsAdmin) {
+        setIsAdmin(userIsAdmin);
+        console.log("[katana] Admin status updated:", userIsAdmin);
+      }
+    }
+
+    console.log("[katana] MusicRoom session user:", user);
+  }, [session, user, setUser, spaceInfo?.hostId, setIsAdmin, isAdmin]);
+
+  const handleBatchAddToQueue = useCallback(async (tracks: any[]) => {
     console.log('Batch add completed by Search component:', { 
       tracksCount: tracks.length, 
       trackNames: tracks.map(t => t.name)
     });
-  };
+  }, []);
 
-  useEffect(() => {
-    if (!socket || !user) return;
-
+  // Memoized WebSocket message handlers
+  const createWebSocketMessageHandler = useCallback(() => {
     let authErrorCount = 0;
     const maxAuthErrors = 3;
 
-    const handleMessage = (event: MessageEvent) => {
+    return (event: MessageEvent) => {
       try {
         const { type, data } = JSON.parse(event.data);
         console.log('MusicRoom received message:', type, data);
         
         switch (type) {
           case 'room-info':
-            setIsAdmin(data.isAdmin || false);
+            // Prioritize server-side admin status if available
+            if (data.isAdmin !== undefined) {
+              setIsAdmin(data.isAdmin);
+              console.log('Admin status from server:', data.isAdmin);
+            }
             setConnectedUsers(data.userCount || 0);
-            setRoomName(data.spaceName );
+            setRoomName(data.spaceName);
             console.log('Room info updated:', { isAdmin: data.isAdmin, userCount: data.userCount });
             break;
+            
           case 'room-joined':
             console.log('Successfully joined room:', data);
             console.log('   - SpaceId:', data.spaceId);
             console.log('   - UserId:', data.userId);
             console.log('   - Message:', data.message);
-            authErrorCount = 0; // Reset on successful join
+            authErrorCount = 0;
             break;
+            
           case 'current-song-update':
             console.log('Current song update received in MusicRoom:', data);
-            // Dispatch to window for Player component to handle
-            window.dispatchEvent(new CustomEvent('current-song-update', {
-              detail: data
-            }));
+            window.dispatchEvent(new CustomEvent('current-song-update', { detail: data }));
             break;
+            
           case 'space-image-response':
             console.log('Space image update received in MusicRoom:', data);
-            // Dispatch to window for components that need the image
-          window.dispatchEvent(new CustomEvent('space-image-update', {
-            detail: data
-          }));
-          break;
-        case 'user-update':
-          setConnectedUsers(data.userCount || data.connectedUsers || 0);
-          if (data.userDetails) {
-            console.log('Updating userDetails:', data.userDetails);
-            setUserDetails(data.userDetails);
-          }
-          console.log('Updated user count:', data.userCount || data.connectedUsers || 0);
-          console.log('Current userDetails state:', userDetails);
-          break;
-        case 'user-joined':
-          setConnectedUsers(prev => prev + 1);
-          console.log('User joined - new count will be:', connectedUsers + 1);
-          if (socket?.readyState === WebSocket.OPEN) {
-            sendMessage('get-room-users', { spaceId });
-          }
-          break;
-        case 'user-left':
-          setConnectedUsers(prev => Math.max(0, prev - 1));
-          console.log('User left - new count will be:', Math.max(0, connectedUsers - 1));
-          if (socket?.readyState === WebSocket.OPEN) {
-            sendMessage('get-room-users', { spaceId });
-          }
-          break;
-
-      
-
-        case 'queue-update':
-          console.log('Queue update received in MusicRoom:', data);
-          break;
+            window.dispatchEvent(new CustomEvent('space-image-update', { detail: data }));
+            break;
+            
+          case 'user-update':
+            setConnectedUsers(data.userCount || data.connectedUsers || 0);
+            if (data.userDetails) {
+              console.log('Updating userDetails:', data.userDetails);
+              setUserDetails(data.userDetails);
+            }
+            console.log('Updated user count:', data.userCount || data.connectedUsers || 0);
+            break;
+            
+          case 'user-joined':
+            setConnectedUsers(prev => prev + 1);
+            console.log('User joined - new count will be:', connectedUsers + 1);
+            if (socket?.readyState === WebSocket.OPEN) {
+              sendMessage('get-room-users', { spaceId });
+            }
+            break;
+            
+          case 'user-left':
+            setConnectedUsers(prev => Math.max(0, prev - 1));
+            console.log('User left - new count will be:', Math.max(0, connectedUsers - 1));
+            if (socket?.readyState === WebSocket.OPEN) {
+              sendMessage('get-room-users', { spaceId });
+            }
+            break;
+            
+          case 'queue-update':
+            console.log('Queue update received in MusicRoom:', data);
+            break;
+            
           case 'error':
             console.error('Room error:', {
               message: data.message || 'Unknown error',
@@ -223,7 +265,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                 readyState: socket?.readyState 
               });
               
-              // Only attempt to rejoin if under max attempts and have valid credentials
               if (authErrorCount < maxAuthErrors && user?.token && socket?.readyState === WebSocket.OPEN) {
                 console.log(`Attempting to rejoin room due to authorization error (attempt ${authErrorCount}/${maxAuthErrors})...`);
                 setTimeout(() => {
@@ -232,12 +273,13 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                     token: user.token,
                     spaceName: spaceInfo?.spaceName
                   });
-                }, 2000 * authErrorCount); // Exponential backoff
+                }, 2000 * authErrorCount);
               } else if (authErrorCount >= maxAuthErrors) {
                 console.error('Max auth error attempts reached. Stopping reconnection attempts.');
               }
             }
             break;
+            
           default:
             console.log('Unhandled message type in MusicRoom:', type);
         }
@@ -245,52 +287,55 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
         console.error('Error parsing WebSocket message in MusicRoom:', error);
       }
     };
+  }, [setIsAdmin, setConnectedUsers, setRoomName, setUserDetails, connectedUsers, socket, sendMessage, spaceId, user, spaceInfo?.spaceName]);
 
+  // WebSocket connection and room joining effect
+  useEffect(() => {
+    if (!socket || !user || !spaceInfo) return;
+
+    const handleMessage = createWebSocketMessageHandler();
     socket.addEventListener('message', handleMessage);
 
-    if (spaceInfo) {
-      console.log('Attempting to join room:', { 
-        spaceId, 
-        spaceName: spaceInfo.spaceName,
-        userId: user.id, 
-        hasToken: !!user.token,
-        tokenLength: user.token?.length,
-        tokenPreview: user.token?.substring(0, 20) + '...'
-      });
-      
-      const roomJoined = sendMessage('join-room', { 
-        spaceId, 
-        token: user.token,
-        spaceName: spaceInfo?.spaceName
-      });
-      
-      if (!roomJoined) {
-        console.error('Failed to join room - connection issue');
-      } else {
-        console.log('Join room message sent successfully with space name:', spaceInfo.spaceName);
-        
-        // Request current song after joining (fallback mechanism)
-        setTimeout(() => {
-          if (socket?.readyState === WebSocket.OPEN) {
-            console.log('Requesting current song as fallback...');
-            sendMessage('get-current-song', { spaceId });
-            sendMessage('get-space-image', { spaceId });
-          }
-        }, 1000);
-      }
+    // Join room logic
+    console.log('Attempting to join room:', { 
+      spaceId, 
+      spaceName: spaceInfo.spaceName,
+      userId: user.id, 
+      hasToken: !!user.token,
+      tokenLength: user.token?.length,
+      tokenPreview: user.token?.substring(0, 20) + '...'
+    });
+    
+    const roomJoined = sendMessage('join-room', { 
+      spaceId, 
+      token: user.token,
+      spaceName: spaceInfo.spaceName
+    });
+    
+    if (!roomJoined) {
+      console.error('Failed to join room - connection issue');
     } else {
-      console.log('Waiting for space info before joining room...');
+      console.log('Join room message sent successfully with space name:', spaceInfo.spaceName);
+      
+      // Fallback requests after joining
+      setTimeout(() => {
+        if (socket?.readyState === WebSocket.OPEN) {
+          console.log('Requesting current song as fallback...');
+          sendMessage('get-current-song', { spaceId });
+          sendMessage('get-space-image', { spaceId });
+        }
+      }, 1000);
     }
 
     return () => {
       socket.removeEventListener('message', handleMessage);
     };
-  }, [socket, user, spaceId, sendMessage, spaceInfo]);
+  }, [socket, user, spaceId, sendMessage, spaceInfo, createWebSocketMessageHandler]);
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
     setVolume(newVolume, true);
-  };
+  }, [setVolume]);
   
   if (loading || !user) {
     return (
@@ -643,6 +688,8 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                         className="w-full"
                       />
                     </BlurComponent>
+
+                    
                   </div>
                   {/* Right Column - QueueManager */}
                   <div className="w-full md:min-w-[625px] order-2 md:order-2 ml-0 md:ml-0 overflow-hidden">
