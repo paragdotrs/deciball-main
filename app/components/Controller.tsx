@@ -59,6 +59,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
   const [isSyncing, setIsSyncing] = useState(false);
   const [seekingProgress, setSeekingProgress] = useState<number | null>(null);
   const [ignoreSync, setIgnoreSync] = useState(false);
+  const [lastUserSeekTime, setLastUserSeekTime] = useState(0);
+  const [userSeekValue, setUserSeekValue] = useState<number | null>(null);
 
   // Additional state for desktop features
   const [isLiked, setIsLiked] = useState(false);
@@ -131,51 +133,149 @@ const AudioController: React.FC<AudioControllerProps> = ({
       
       switch (message.type) {
         case 'playback-sync':
-          // Ignore sync messages during and shortly after seeking
-          if (ignoreSync || isSeeking || isDragging) {
-            console.log('[Sync] Ignoring sync during seek operation');
+          // Enhanced ignore logic for recent user seek operations
+          const timeSinceUserSeek = Date.now() - lastUserSeekTime;
+          const shouldIgnoreSync = ignoreSync || 
+                                 isSeeking || 
+                                 isDragging || 
+                                 timeSinceUserSeek < 8000; // Ignore syncs for 8 seconds after user seek
+          
+          if (shouldIgnoreSync) {
+            console.log('[Sync] Ignoring sync - recent user interaction:', {
+              ignoreSync,
+              isSeeking,
+              isDragging,
+              timeSinceUserSeek,
+              lastUserSeekTime
+            });
             return;
           }
           
           const { currentTime, isPlaying: serverPlaying } = message.data;
-          const expectedTime = serverPlaying ? currentTime : progress;
+          
+          // If we recently seeked, use our seek value instead of server time
+          let expectedTime = currentTime;
+          if (userSeekValue !== null && timeSinceUserSeek < 10000) {
+            expectedTime = userSeekValue + (timeSinceUserSeek / 1000);
+            console.log('[Sync] Using user seek value for sync calculation:', {
+              userSeekValue,
+              timeSinceUserSeek,
+              calculatedTime: expectedTime
+            });
+          }
+          
           const timeDiff = Math.abs(expectedTime - progress);
           
-          // Only sync if drift is significant and we're not seeking
-          // Increased threshold to 5 seconds to reduce interruptions during seeking
-          if (timeDiff > 5) {
+          // Only sync if drift is significant and we're not in a user-controlled state
+          if (timeDiff > 8) { // Increased threshold to reduce sync conflicts
             console.log('[Sync] Correcting time drift:', { 
               expected: expectedTime, 
               current: progress, 
-              diff: timeDiff 
+              diff: timeDiff,
+              serverTime: currentTime,
+              userSeekValue
             });
             
             setIsSyncing(true);
             seek(expectedTime);
-            setTimeout(() => setIsSyncing(false), 300); // Reduced sync duration
+            setTimeout(() => setIsSyncing(false), 500);
           }
           break;
 
         case 'playback-play':
-          if (!isPlaying && !isSeeking) {
+          if (!isPlaying && !isSeeking && !isDragging) {
             togglePlayPause();
           }
           break;
 
         case 'playback-pause':
-          if (isPlaying && !isSeeking) {
+          if (isPlaying && !isSeeking && !isDragging) {
             togglePlayPause();
           }
           break;
 
         case 'playback-seek':
           // Only process external seek commands if we're not currently seeking
-          if (!isSeeking && !isDragging) {
-            const { seekTime } = message.data;
+          // and it's not from our own seek operation
+          const timeSinceOurSeek = Date.now() - lastUserSeekTime;
+          const isOurSeek = timeSinceOurSeek < 2000; // Within 2 seconds of our seek
+          
+          if (!isSeeking && !isDragging && !isOurSeek) {
+            const { seekTime, triggeredBy } = message.data;
+            console.log('[Sync] Processing external seek command:', {
+              seekTime,
+              triggeredBy,
+              isOurSeek,
+              timeSinceOurSeek
+            });
+            
             setSeekingProgress(seekTime);
             seek(seekTime);
             
             // Clear the seeking progress after a short delay
+            setTimeout(() => {
+              setSeekingProgress(null);
+            }, 1000);
+          } else {
+            console.log('[Sync] Ignoring external seek - currently seeking or recent user seek:', {
+              isSeeking,
+              isDragging,
+              isOurSeek,
+              timeSinceOurSeek
+            });
+          }
+          break;
+
+        case 'request-current-timestamp':
+          // Admin is being asked for their current timestamp to sync a new joiner
+          if (isAdmin && message.data.spaceId === spaceId) {
+            console.log('[AdminSync] Received request for current timestamp:', message.data);
+            
+            // Get our current exact playback position
+            const currentPlaybackTime = progress; // This is our real current time
+            const isCurrentlyPlaying = isPlaying;
+            
+            // Send response back to server with our exact timestamp
+            if (sendMessage) {
+              sendMessage("admin-timestamp-response", {
+                spaceId: message.data.spaceId,
+                requestId: message.data.requestId,
+                currentTime: currentPlaybackTime,
+                isPlaying: isCurrentlyPlaying,
+                userId: userId,
+                respondedAt: Date.now()
+              });
+              
+              console.log('[AdminSync] Sent timestamp response:', {
+                currentTime: currentPlaybackTime,
+                isPlaying: isCurrentlyPlaying,
+                requestId: message.data.requestId
+              });
+            }
+          }
+          break;
+
+        case 'admin-timestamp-sync':
+          // New joiner receiving exact timestamp from admin
+          if (message.data.isInitialSync && message.data.syncSource === 'admin-realtime') {
+            console.log('[NewJoiner] Received admin real-time sync:', message.data);
+            
+            const { currentTime: adminTime, isPlaying: adminIsPlaying } = message.data;
+            
+            // Apply the admin's exact timestamp
+            setSeekingProgress(adminTime);
+            seek(adminTime);
+            
+            // Sync playing state if different
+            if (adminIsPlaying !== isPlaying) {
+              console.log('[NewJoiner] Syncing play state to admin:', adminIsPlaying);
+              if (customTogglePlayPause) {
+                customTogglePlayPause();
+              } else {
+                togglePlayPause();
+              }
+            }
+            
             setTimeout(() => {
               setSeekingProgress(null);
             }, 1000);
@@ -185,7 +285,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
     } catch (error) {
       console.error('[Controller] Error parsing WebSocket message:', error);
     }
-  }, [ignoreSync, isSeeking, isDragging, progress, isPlaying, seek, togglePlayPause]);
+  }, [ignoreSync, isSeeking, isDragging, progress, isPlaying, seek, togglePlayPause, lastUserSeekTime, userSeekValue, isAdmin, spaceId, userId, sendMessage, customTogglePlayPause]);
 
   useEffect(() => {
     if (!socket) return;
@@ -304,25 +404,41 @@ const AudioController: React.FC<AudioControllerProps> = ({
     const newTime = (tempProgress / 100) * duration;
     const currentTime = Date.now();
     
-    // Enhanced throttling and smoother seeking
-    if (currentTime - lastSeekTime > 200) { // Increased throttle to 200ms for smoother experience
+    // Enhanced seeking with better state management
+    if (currentTime - lastSeekTime > 200) {
       setIsLocalSeeking(true);
+      setIgnoreSync(true);
+      
+      // Store the seek information for sync coordination
+      setLastUserSeekTime(currentTime);
+      setUserSeekValue(newTime);
+      
+      console.log('[Seek] User drag seek to:', newTime, 'seconds');
       
       // Store current playing state to restore after seek
       const wasPlaying = isPlaying;
       
-      // Perform the actual seek with smoother timing
+      // Perform the actual seek
       seek(newTime);
       setLastSeekTime(currentTime);
       
-      // Reduced clearing delays for smoother experience
+      // Send seek command to server for coordination
+      if (sendMessage && spaceId && userId) {
+        sendMessage("seek-playback", {
+          spaceId,
+          userId,
+          seekTime: newTime,
+          timestamp: currentTime
+        });
+      }
+      
+      // Clear seeking states with optimized timing
       setTimeout(() => {
         setIsLocalSeeking(false);
         setSeekingProgress(null);
         
         // Ensure playback resumes if it was playing before seek
         if (wasPlaying && !isPlaying) {
-          // Small delay to ensure seek is complete
           setTimeout(() => {
             if (customTogglePlayPause) {
               customTogglePlayPause();
@@ -331,22 +447,30 @@ const AudioController: React.FC<AudioControllerProps> = ({
             }
           }, 100);
         }
-      }, 300); // Reduced from 800ms
+      }, 500);
       
+      // Extended ignore period for sync messages
       setTimeout(() => {
         setIgnoreSync(false);
-      }, 600); // Reduced from 1200ms
+        console.log('[Seek] Re-enabling sync after user seek operation');
+      }, 10000); // 10 second ignore period
+      
+      // Clear user seek tracking after extended period
+      setTimeout(() => {
+        setUserSeekValue(null);
+        console.log('[Seek] Cleared user seek value tracking');
+      }, 15000); // 15 second tracking period
     } else {
       // If throttled, still clear the states quickly
       setTimeout(() => {
         setIgnoreSync(false);
         setSeekingProgress(null);
-      }, 200); // Reduced from 500ms
+      }, 300);
     }
     
     setIsDragging(false);
     setIsProgressActive(false);
-  }, [isDragging, isAdmin, tempProgress, duration, lastSeekTime, seek, isPlaying, customTogglePlayPause, togglePlayPause]);
+  }, [isDragging, isAdmin, tempProgress, duration, lastSeekTime, seek, isPlaying, customTogglePlayPause, togglePlayPause, sendMessage, spaceId, userId]);
 
   const handleProgressClick = useCallback((e: any) => {
     if (!isAdmin || isDragging) return;
@@ -358,12 +482,16 @@ const AudioController: React.FC<AudioControllerProps> = ({
     const newTime = (percent / 100) * duration;
     const currentTime = Date.now();
     
-    // Set seeking state to prevent sync conflicts
+    // Enhanced click seeking with better state management
     setIgnoreSync(true);
     setSeekingProgress(newTime);
+    setLastUserSeekTime(currentTime);
+    setUserSeekValue(newTime);
+    
+    console.log('[Seek] User click seek to:', newTime, 'seconds');
     
     // Throttle seeking for clicks with optimized timing
-    if (currentTime - lastSeekTime > 200) { // Increased throttle for smoother clicks
+    if (currentTime - lastSeekTime > 200) {
       setIsLocalSeeking(true);
       
       // Store current playing state
@@ -372,9 +500,19 @@ const AudioController: React.FC<AudioControllerProps> = ({
       seek(newTime);
       setLastSeekTime(currentTime);
       
+      // Send seek command to server for coordination
+      if (sendMessage && spaceId && userId) {
+        sendMessage("seek-playback", {
+          spaceId,
+          userId,
+          seekTime: newTime,
+          timestamp: currentTime
+        });
+      }
+      
       // Visual feedback for click with reduced duration
       setTempProgress(percent);
-      setTimeout(() => setTempProgress(0), 50); // Reduced visual feedback duration
+      setTimeout(() => setTempProgress(0), 50);
       
       // Clear seeking states with optimized timing
       setTimeout(() => {
@@ -391,19 +529,27 @@ const AudioController: React.FC<AudioControllerProps> = ({
             }
           }, 100);
         }
-      }, 300); // Reduced from 800ms
+      }, 500);
       
+      // Extended ignore period for sync messages
       setTimeout(() => {
         setIgnoreSync(false);
-      }, 600); // Reduced from 1200ms
+        console.log('[Seek] Re-enabling sync after user click seek');
+      }, 10000); // 10 second ignore period
+      
+      // Clear user seek tracking after extended period
+      setTimeout(() => {
+        setUserSeekValue(null);
+        console.log('[Seek] Cleared user seek value tracking');
+      }, 15000); // 15 second tracking period
     } else {
       // If throttled, clear states quickly
       setTimeout(() => {
         setIgnoreSync(false);
         setSeekingProgress(null);
-      }, 200); // Reduced from 500ms
+      }, 300);
     }
-  }, [isAdmin, isDragging, calculateProgress, duration, lastSeekTime, seek, isPlaying, customTogglePlayPause, togglePlayPause]);
+  }, [isAdmin, isDragging, calculateProgress, duration, lastSeekTime, seek, isPlaying, customTogglePlayPause, togglePlayPause, sendMessage, spaceId, userId]);
 
   // Optimized toggle mute with useCallback
   const toggleMute = useCallback(() => {
@@ -430,17 +576,37 @@ const AudioController: React.FC<AudioControllerProps> = ({
         } else {
           if (isAdmin) {
             const newTime = Math.max(0, displayTime - 10);
+            const currentTime = Date.now();
+            
             setIgnoreSync(true);
             setSeekingProgress(newTime);
+            setLastUserSeekTime(currentTime);
+            setUserSeekValue(newTime);
+            
+            console.log('[Seek] Keyboard left arrow seek to:', newTime, 'seconds');
             debouncedSeek(newTime);
+            
+            // Send seek command to server
+            if (sendMessage && spaceId && userId) {
+              sendMessage("seek-playback", {
+                spaceId,
+                userId,
+                seekTime: newTime,
+                timestamp: currentTime
+              });
+            }
             
             setTimeout(() => {
               setSeekingProgress(null);
-            }, 400);
+            }, 500);
             
             setTimeout(() => {
               setIgnoreSync(false);
-            }, 800);
+            }, 10000); // Extended ignore period
+            
+            setTimeout(() => {
+              setUserSeekValue(null);
+            }, 15000); // Clear tracking
           }
         }
         break;
@@ -451,17 +617,37 @@ const AudioController: React.FC<AudioControllerProps> = ({
         } else {
           if (isAdmin) {
             const newTime = Math.min(duration, displayTime + 10);
+            const currentTime = Date.now();
+            
             setIgnoreSync(true);
             setSeekingProgress(newTime);
+            setLastUserSeekTime(currentTime);
+            setUserSeekValue(newTime);
+            
+            console.log('[Seek] Keyboard right arrow seek to:', newTime, 'seconds');
             debouncedSeek(newTime);
+            
+            // Send seek command to server
+            if (sendMessage && spaceId && userId) {
+              sendMessage("seek-playback", {
+                spaceId,
+                userId,
+                seekTime: newTime,
+                timestamp: currentTime
+              });
+            }
             
             setTimeout(() => {
               setSeekingProgress(null);
-            }, 400);
+            }, 500);
             
             setTimeout(() => {
               setIgnoreSync(false);
-            }, 800);
+            }, 10000); // Extended ignore period
+            
+            setTimeout(() => {
+              setUserSeekValue(null);
+            }, 15000); // Clear tracking
           }
         }
         break;
@@ -477,7 +663,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
         toggleMute();
         break;
     }
-  }, [handleTogglePlayPause, handlePlayNext, handlePlayPrev, debouncedSeek, displayTime, duration, volume, toggleMute, setVolume, isAdmin]);
+  }, [handleTogglePlayPause, handlePlayNext, handlePlayPrev, debouncedSeek, displayTime, duration, volume, toggleMute, setVolume, isAdmin, sendMessage, spaceId, userId]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyPress);
