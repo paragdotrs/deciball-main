@@ -135,37 +135,29 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className={`w-full h-full bg-gradient-to-br from-black/95 via-gray-900/95 to-black/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl flex flex-col relative overflow-hidden ${className}`}
+        className={`w-full h-full bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl flex flex-col relative overflow-hidden ${className}`}
       >
-        {/* Gradient Background Effects */}
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-purple-500/5 pointer-events-none" />
-        <div className="absolute top-0 left-1/4 w-32 h-32 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-1/4 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Chat Header */}
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="relative flex items-center justify-between p-6 border-b border-white/10 bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-sm"
+          className="relative flex items-center justify-between p-6 border-b border-white/20"
         >
           <div className="flex items-center gap-3">
-            <motion.div
-              animate={{ rotate: [0, 360] }}
-              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-              className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center"
-            >
+            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-400 to-teal-400 flex items-center justify-center">
               <Users className="w-4 h-4 text-white" />
-            </motion.div>
+            </div>
             <div>
-              <h3 className={`font-bold text-xl text-white ${outfit.className}`}>
+              <h3 className={`font-bold text-xl bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent ${outfit.className}`}>
                 Room Chat
               </h3>
-              <p className={`text-xs text-gray-400 ${inter.className}`}>
+              <p className={`text-sm text-white/70 ${inter.className}`}>
                 Connect with your room
               </p>
             </div>
-            <Badge className="bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-300 border border-cyan-500/30 px-3 py-1">
+            <Badge className="bg-white/5 text-cyan-400 border border-white/20 px-3 py-1">
               {messages.length}
             </Badge>
           </div>
@@ -173,7 +165,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
             onClick={toggleChat}
             variant="ghost"
             size="sm"
-            className="p-2 h-auto text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300"
+            className="p-2 h-auto text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300"
           >
             <X className="w-5 h-5" />
           </Button>
@@ -187,14 +179,9 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-center text-gray-400 py-12"
+                  className="text-center text-white/50 py-12"
                 >
-                  <motion.div
-                    animate={{ scale: [1, 1.1, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    <MessageCircle className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                  </motion.div>
+                  <MessageCircle className="w-12 h-12 mx-auto mb-4 opacity-30" />
                   <p className={`text-base ${inter.className}`}>
                     No messages yet. Start the conversation!
                   </p>
@@ -223,7 +210,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                             className="object-cover"
                           />
                           <AvatarFallback className={`
-                            text-sm font-bold bg-gradient-to-br from-cyan-500 to-purple-500 text-white
+                            text-sm font-bold bg-gradient-to-br from-cyan-400 to-teal-400 text-white
                             ${outfit.className}
                           `}>
                             {getUserInitials(message.username)}
@@ -258,14 +245,14 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                             className={`
                               text-sm break-words px-4 py-3 rounded-2xl max-w-[80%] relative overflow-hidden
                               ${isCurrentUser 
-                                ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white shadow-lg shadow-cyan-500/20' 
-                                : 'bg-gradient-to-r from-white/10 to-white/5 text-gray-200 border border-white/10'
+                                ? 'bg-gradient-to-r from-cyan-400 to-teal-400 text-white shadow-lg shadow-cyan-400/20' 
+                                : 'bg-white/5 text-white border border-white/20'
                               }
                               ${inter.className}
                             `}
                           >
                             {isCurrentUser && (
-                              <div className="absolute inset-0 bg-gradient-to-r from-cyan-600/30 to-purple-600/30 rounded-2xl" />
+                              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/30 to-teal-500/30 rounded-2xl" />
                             )}
                             <span className="relative z-10">{message.message}</span>
                           </motion.div>
@@ -285,7 +272,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="p-6 border-t border-white/10 bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-sm"
+          className="p-6 border-t border-white/20"
         >
           <div className="flex gap-3">
             <div className="flex-1 relative">
@@ -296,10 +283,10 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message..."
                 className={`
-                  w-full bg-gradient-to-r from-white/10 to-white/5 border border-white/20 
-                  focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/20
-                  text-white placeholder:text-gray-400 rounded-2xl px-5 py-3
-                  transition-all duration-300 ${inter.className}
+                  w-full bg-black/40 border border-white/30 
+                  focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/30
+                  text-white placeholder:text-gray-300 rounded-2xl px-5 py-3
+                  transition-all duration-300 backdrop-blur-sm ${inter.className}
                 `}
                 maxLength={500}
               />
@@ -316,10 +303,10 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim()}
                 className={`
-                  px-4 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-purple-500
-                  hover:from-cyan-400 hover:to-purple-400 disabled:opacity-50
-                  disabled:cursor-not-allowed transition-all duration-300
-                  shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40
+                  px-4 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-teal-400
+                  hover:from-cyan-300 hover:to-teal-300 disabled:opacity-50
+                  disabled:cursor-not-allowed transition-all duration-300 text-white
+                  shadow-lg shadow-cyan-400/25 hover:shadow-cyan-400/40
                 `}
               >
                 <Send className="w-5 h-5" />
@@ -344,9 +331,9 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
           onClick={toggleChat}
           className={`
             relative flex items-center gap-2 px-4 py-3 rounded-2xl
-            bg-gradient-to-r from-black/60 to-gray-900/60 hover:from-black/70 hover:to-gray-900/70
-            border border-white/20 hover:border-white/30 backdrop-blur-xl 
-            transition-all duration-300 text-gray-200 hover:text-white
+            bg-black/60 hover:bg-black/70 backdrop-blur-xl 
+            border border-white/20 hover:border-white/30
+            transition-all duration-300 text-white/70 hover:text-white
             shadow-lg hover:shadow-xl ${inter.className}
           `}
         >
@@ -367,7 +354,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                 exit={{ scale: 0, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
               >
-                <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs min-w-[24px] h-6 rounded-full p-0 flex items-center justify-center border-2 border-black shadow-lg">
+                <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-cyan-400 to-teal-400 text-white text-xs min-w-[24px] h-6 rounded-full p-0 flex items-center justify-center border-2 border-black shadow-lg">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </Badge>
               </motion.div>
@@ -400,42 +387,33 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                 bottom-0 md:bottom-full right-0 md:right-0 md:mb-4
                 w-full sm:w-[90vw] md:w-80 lg:w-96 
                 h-[85vh] sm:h-[80vh] md:h-[500px]
-                bg-gradient-to-br from-black/95 via-gray-900/95 to-black/95 
-                backdrop-blur-2xl border border-white/20 
-                rounded-t-3xl sm:rounded-3xl md:rounded-3xl
+                bg-black/90 backdrop-blur-xl border border-white/20 
+                rounded-t-2xl sm:rounded-2xl md:rounded-2xl
                 shadow-2xl z-50 flex flex-col overflow-hidden
                 mx-auto sm:mx-4 md:mx-0
               `}
             >
-              {/* Gradient Background Effects */}
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-purple-500/5 pointer-events-none" />
-              <div className="absolute top-0 left-1/4 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
-              <div className="absolute bottom-0 right-1/4 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
 
               {/* Chat Header */}
               <motion.div 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="relative flex items-center justify-between p-4 sm:p-5 md:p-4 border-b border-white/10 bg-gradient-to-r from-white/5 to-white/10"
+                className="relative flex items-center justify-between p-4 sm:p-5 md:p-4 border-b border-white/20"
               >
                 <div className="flex items-center gap-3">
-                  <motion.div
-                    animate={{ rotate: [0, 360] }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                    className="w-7 h-7 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center"
-                  >
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-r from-cyan-400 to-teal-400 flex items-center justify-center">
                     <Users className="w-3.5 h-3.5 text-white" />
-                  </motion.div>
+                  </div>
                   <div>
-                    <h3 className={`font-bold text-lg text-white ${outfit.className}`}>
+                    <h3 className={`font-bold text-lg bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent ${outfit.className}`}>
                       Room Chat
                     </h3>
-                    <p className={`text-xs text-gray-400 ${inter.className}`}>
+                    <p className={`text-xs text-white/70 ${inter.className}`}>
                       {messages.length} messages
                     </p>
                   </div>
-                  <Badge className="bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-1 text-xs">
+                  <Badge className="bg-white/5 text-cyan-400 border border-white/20 px-2 py-1 text-xs">
                     Live
                   </Badge>
                 </div>
@@ -443,7 +421,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                   onClick={toggleChat}
                   variant="ghost"
                   size="sm"
-                  className="p-2 h-auto text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300"
+                  className="p-2 h-auto text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300"
                 >
                   <X className="w-5 h-5" />
                 </Button>
@@ -456,14 +434,9 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                     <motion.div 
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="text-center text-gray-400 py-8 sm:py-12"
+                      className="text-center text-white/50 py-8 sm:py-12"
                     >
-                      <motion.div
-                        animate={{ scale: [1, 1.1, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      >
-                        <MessageCircle className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-30" />
-                      </motion.div>
+                      <MessageCircle className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-30" />
                       <p className={`text-sm sm:text-base ${inter.className}`}>
                         No messages yet. Start the conversation!
                       </p>
@@ -492,7 +465,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                                 className="object-cover"
                               />
                               <AvatarFallback className={`
-                                text-xs sm:text-sm font-bold bg-gradient-to-br from-cyan-500 to-purple-500 text-white
+                                text-xs sm:text-sm font-bold bg-gradient-to-br from-cyan-400 to-teal-400 text-white
                                 ${outfit.className}
                               `}>
                                 {getUserInitials(message.username)}
@@ -516,7 +489,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                                   </Badge>
                                 </motion.div>
                               )}
-                              <span className={`text-xs text-gray-500 flex-shrink-0 ${jetBrainsMono.className}`}>
+                              <span className={`text-xs text-white/50 flex-shrink-0 ${jetBrainsMono.className}`}>
                                 {formatTime(message.timestamp)}
                               </span>
                             </div>
@@ -527,14 +500,14 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                                 className={`
                                   text-sm break-words px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl relative overflow-hidden
                                   ${isCurrentUser 
-                                    ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white shadow-md shadow-cyan-500/20' 
-                                    : 'bg-gradient-to-r from-white/10 to-white/5 text-gray-200 border border-white/10'
+                                    ? 'bg-gradient-to-r from-cyan-400 to-teal-400 text-white shadow-md shadow-cyan-400/20' 
+                                    : 'bg-white/5 text-white border border-white/20'
                                   }
                                   ${inter.className}
                                 `}
                               >
                                 {isCurrentUser && (
-                                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-600/20 to-purple-600/20 rounded-xl sm:rounded-2xl" />
+                                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-teal-500/20 rounded-xl sm:rounded-2xl" />
                                 )}
                                 <span className="relative z-10">{message.message}</span>
                               </motion.div>
@@ -553,7 +526,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="p-4 sm:p-5 md:p-4 border-t border-white/10 bg-gradient-to-r from-white/5 to-white/10"
+                className="p-4 sm:p-5 md:p-4 border-t border-white/20"
               >
                 <div className="flex gap-2 sm:gap-3">
                   <div className="flex-1 relative">
@@ -564,15 +537,15 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                       onKeyPress={handleKeyPress}
                       placeholder="Type your message..."
                       className={`
-                        w-full bg-gradient-to-r from-white/10 to-white/5 border border-white/20 
-                        focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/20
-                        text-white placeholder:text-gray-400 rounded-xl sm:rounded-2xl 
+                        w-full bg-black/40 border border-white/30 
+                        focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/30
+                        text-white placeholder:text-gray-300 rounded-xl sm:rounded-2xl 
                         px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base
-                        transition-all duration-300 ${inter.className}
+                        transition-all duration-300 backdrop-blur-sm ${inter.className}
                       `}
                       maxLength={500}
                     />
-                    <div className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
+                    <div className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-xs text-white/50">
                       {newMessage.length}/500
                     </div>
                   </div>
@@ -586,10 +559,10 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                       disabled={!newMessage.trim()}
                       className={`
                         px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl 
-                        bg-gradient-to-r from-cyan-500 to-purple-500
-                        hover:from-cyan-400 hover:to-purple-400 disabled:opacity-50
-                        disabled:cursor-not-allowed transition-all duration-300
-                        shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40
+                        bg-gradient-to-r from-cyan-400 to-teal-400
+                        hover:from-cyan-300 hover:to-teal-300 disabled:opacity-50
+                        disabled:cursor-not-allowed transition-all duration-300 text-white
+                        shadow-lg shadow-cyan-400/25 hover:shadow-cyan-400/40
                       `}
                     >
                       <Send className="w-4 h-4 sm:w-5 sm:h-5" />
