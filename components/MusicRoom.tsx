@@ -22,6 +22,7 @@ import { ElectronDetector } from './ElectronDetector';
 import HalftoneWavesBackground from './Background';
 import BlurText, { BlurComponent } from './ui/BlurEffects';
 import { RecommendationPanel } from './RecommendationPanel';
+import SpaceEndedModal from './SpaceEndedModal';
 import { lexend, poppins, signikaNegative, inter, manrope, spaceGrotesk, jetBrainsMono, outfit } from '@/lib/font';
 
 interface MusicRoomProps {
@@ -43,6 +44,11 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   const [showPlayer, setShowPlayer] = useState(true);
   const [userDetails, setUserDetails] = useState<any[]>([]);
   const [spaceInfo, setSpaceInfo] = useState<{ spaceName: string; hostId: string } | null>(null);
+  
+  // Space ended modal state
+  const [showSpaceEndedModal, setShowSpaceEndedModal] = useState(false);
+  const [spaceEndedReason, setSpaceEndedReason] = useState('');
+  const [spaceEndedMessage, setSpaceEndedMessage] = useState('');
 
   // Memoized values to prevent unnecessary re-computations
   const profilePicture = useMemo(() => {
@@ -172,6 +178,21 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     });
   }, []);
 
+  // Space ended modal handlers
+  const handleCreateNewSpace = useCallback(() => {
+    setShowSpaceEndedModal(false);
+    router.push('/dashboard?action=create-space');
+  }, [router]);
+
+  const handleGoHome = useCallback(() => {
+    setShowSpaceEndedModal(false);
+    router.push('/dashboard');
+  }, [router]);
+
+  const handleCloseModal = useCallback(() => {
+    setShowSpaceEndedModal(false);
+  }, []);
+
   // Memoized WebSocket message handlers
   const createWebSocketMessageHandler = useCallback(() => {
     let authErrorCount = 0;
@@ -210,6 +231,11 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
           case 'space-image-response':
             console.log('Space image update received in MusicRoom:', data);
             window.dispatchEvent(new CustomEvent('space-image-update', { detail: data }));
+            break;
+
+          case 'chat-message':
+            console.log('Chat message received in MusicRoom:', data);
+            window.dispatchEvent(new CustomEvent('chat-message', { detail: data }));
             break;
             
           case 'user-update':
@@ -278,6 +304,13 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                 console.error('Max auth error attempts reached. Stopping reconnection attempts.');
               }
             }
+            break;
+            
+          case 'space-ended':
+            console.log('Space ended:', data);
+            setSpaceEndedReason(data.reason || 'unknown');
+            setSpaceEndedMessage(data.message || 'The space has ended.');
+            setShowSpaceEndedModal(true);
             break;
             
           default:
@@ -460,7 +493,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                     direction="top"
                   />
                 </div>
-                <div className="flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300 shadow-lg bg-black/40 backdrop-blur-xl border border-white/20 hover:border-white/30">
@@ -715,6 +748,17 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
           </div>
 
         </div>
+        
+        {/* Space Ended Modal */}
+        <SpaceEndedModal
+          isOpen={showSpaceEndedModal}
+          onClose={handleCloseModal}
+          onCreateNewSpace={handleCreateNewSpace}
+          onGoHome={handleGoHome}
+          spaceName={roomName || spaceInfo?.spaceName}
+          reason={spaceEndedReason}
+          message={spaceEndedMessage}
+        />
     </HalftoneWavesBackground>
   
   );

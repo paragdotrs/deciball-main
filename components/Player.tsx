@@ -77,19 +77,24 @@ export const Player: React.FC<PlayerProps> = ({
 
   const togglePlayPause = () => {
     console.log('[Player] togglePlayPause called, current isPlaying:', isPlaying);
+    console.log('[Player] isAdmin:', isAdmin);
     
     const willBePlaying = !isPlaying;
     const message = willBePlaying ? 'play' : 'pause';
     
     console.log('[Player] Will be playing:', willBePlaying, 'Sending message:', message);
     
+    // Always toggle locally
     audioTogglePlayPause();
     
-    if (sendMessage && spaceId && user?.id) {
+    // Only send to server if admin (to broadcast to other users)
+    if (isAdmin && sendMessage && spaceId && user?.id) {
       setTimeout(() => {
-        console.log('[Player] Sending room-wide message:', message);
+        console.log('[Player] Admin sending room-wide message:', message);
         sendMessage(message, { spaceId, userId: user.id });
       }, 100);
+    } else if (!isAdmin) {
+      console.log('[Player] Listener local play/pause - no broadcast sent');
     }
   };
 

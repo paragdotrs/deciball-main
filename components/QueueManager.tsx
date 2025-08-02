@@ -11,7 +11,8 @@ import { Input } from '@/app/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/app/components/ui/dialog';
 import { PiArrowFatLineUpFill } from "react-icons/pi";
 import { LuArrowBigUpDash } from "react-icons/lu";
-import { Link, Plus, Loader2 } from 'lucide-react';
+import { Link, Plus, Loader2, MessageCircle, X } from 'lucide-react';
+import { Chat } from './Chat';
 import { 
   PlayIcon, 
   DeleteIcon, 
@@ -472,6 +473,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentPlaying, setCurrentPlaying] = useState<QueueItem | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  const [showChatOverlay, setShowChatOverlay] = useState(false);
   
   // New state for direct link and playlist features
   const [directUrl, setDirectUrl] = useState('');
@@ -1027,10 +1029,23 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           </div>
           
           {/* Admin Action Buttons - Add Direct URL and Playlist */}
-          {adminStatus && (
-            <div className="flex items-center gap-2">
-              {/* Direct URL/Link Button */}
-              <Dialog open={showDirectUrlDialog} onOpenChange={setShowDirectUrlDialog}>
+          <div className="flex items-center gap-2">
+            {/* Chat Button - Available to all users */}
+            <Button
+              onClick={() => setShowChatOverlay(true)}
+              variant="outline"
+              size="sm"
+              className="bg-cyan-500/20 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/30 hover:text-cyan-200 transition-all duration-200"
+            >
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Chat
+            </Button>
+            
+            {/* Admin Only Buttons */}
+            {adminStatus && (
+              <>
+                {/* Direct URL/Link Button */}
+                <Dialog open={showDirectUrlDialog} onOpenChange={setShowDirectUrlDialog}>
                 <DialogTrigger asChild>
                   <Button
                     variant="outline"
@@ -1174,18 +1189,11 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                   </div>
                 </DialogContent>
               </Dialog>
-            </div>
-          )}
+              </>
+            )}
+          </div>
           
-          <motion.div
-            animate={{ scale: [1, 1.05, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="px-2 sm:px-3 py-1 rounded-full bg-blue-500/20 backdrop-blur-xl border border-blue-500/30 shadow-lg ring-1 ring-blue-500/20"
-          >
-            <span className="text-xs sm:text-sm text-blue-300 font-medium">
-              {queue.length} songs
-            </span>
-          </motion.div>
+        
         </motion.div>
 
         <AnimatePresence mode="wait">
@@ -1459,6 +1467,27 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
         transform: none !important;
       }
     `}</style>
+    
+    {/* Chat Overlay */}
+    {showChatOverlay && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        {/* Backdrop */}
+        <div 
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowChatOverlay(false)}
+        />
+        
+        {/* Chat Container */}
+        <div className="relative w-full max-w-md h-[80vh] mx-4">
+          <Chat 
+            spaceId={spaceId} 
+            className="w-full h-full"
+            isOverlay={true}
+            onClose={() => setShowChatOverlay(false)}
+          />
+        </div>
+      </div>
+    )}
   </div>
   );
 };

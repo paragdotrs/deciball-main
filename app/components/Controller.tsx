@@ -295,18 +295,21 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
   // Optimized control handlers with useCallback
   const handleTogglePlayPause = useCallback(() => {
-    if (!isAdmin) {
-      console.log('[AudioController] Play/Pause action denied - user is not admin');
-      return;
-    }
-    
     console.log('[AudioController] handleTogglePlayPause called');
     console.log('[AudioController] customTogglePlayPause provided:', !!customTogglePlayPause);
+    console.log('[AudioController] isAdmin:', isAdmin);
     
-    if (customTogglePlayPause) {
-      customTogglePlayPause();
+    if (isAdmin) {
+      // Admin controls: broadcast to all users
+      if (customTogglePlayPause) {
+        customTogglePlayPause();
+      } else {
+        togglePlayPause();
+      }
     } else {
-      togglePlayPause();
+      // Listener controls: local only, no broadcast
+      console.log('[AudioController] Listener local play/pause - no broadcast');
+      togglePlayPause(); // Local toggle only
     }
   }, [isAdmin, customTogglePlayPause, togglePlayPause]);
 
@@ -875,15 +878,12 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <button
               onClick={handleClick(handleTogglePlayPause)}
               style={{ touchAction: 'manipulation' }}
-              className={`p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[48px] min-h-[48px] active:scale-95 ${outfit.className} font-medium ${
-                isAdmin ? 'text-black cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
-              }`}
+              className={`p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[48px] min-h-[48px] active:scale-95 ${outfit.className} font-medium text-black cursor-pointer`}
               title={
                 isAdmin 
                   ? (isPlaying ? "Pause" : "Play")
-                  : (isPlaying ? "Pause (Admin only)" : "Play (Admin only)")
+                  : (isPlaying ? "Pause (Local)" : "Play (Local)")
               }
-              disabled={!isAdmin}
             >
               {isPlaying ? (
                 <div className="text-black">
@@ -1006,15 +1006,12 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <button
               onClick={handleClick(handleTogglePlayPause)}
               style={{ touchAction: 'manipulation' }}
-              className={`p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[56px] min-h-[56px] active:scale-95 ${outfit.className} font-medium ${
-                isAdmin ? 'text-black cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
-              }`}
+              className={`p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[56px] min-h-[56px] active:scale-95 ${outfit.className} font-medium text-black cursor-pointer`}
               title={
                 isAdmin 
                   ? (isPlaying ? "Pause (Space)" : "Play (Space)")
-                  : (isPlaying ? "Pause (Admin only)" : "Play (Admin only)")
+                  : (isPlaying ? "Pause (Local)" : "Play (Local)")
               }
-              disabled={!isAdmin}
             >
               {isPlaying ? (
                 <div className="text-black">
