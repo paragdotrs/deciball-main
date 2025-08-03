@@ -461,7 +461,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
         {/* Sidebar - Only render on desktop, completely hidden on mobile */}
         {!isMobile && (
           <div className="flex-shrink-0 relative z-10">
-            <SidebarProvider>
+            <SidebarProvider defaultOpen={false}>
               <ListenerSidebar 
                 listeners={userDetails.length > 0 ? userDetails : [
                   ...Array.from({ length: connectedUsers }, (_, i) => ({
@@ -733,7 +733,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                       stepDuration={0.4}
                     >
                       {showQueue && (
-                        <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-3 sm:p-4 md:p-6 h-full min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] w-full max-w-full overflow-hidden">
+                        <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-3 sm:p-4 md:p-6 h-full w-full max-w-full overflow-hidden">
                           <QueueManager 
                             spaceId={spaceId} 
                             isAdmin={isAdmin}
