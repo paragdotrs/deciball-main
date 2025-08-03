@@ -67,14 +67,14 @@ interface QueueManagerProps {
 
 const PlayingAnimation = () => {
   return (
-    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm rounded-xl flex items-center justify-center">
-      <div className="flex items-center space-x-1">
+    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+      <div className="flex items-center space-x-1.5">
         {[...Array(4)].map((_, i) => (
           <motion.div
             key={i}
-            className="w-1 bg-blue-400 rounded-full"
+            className="w-1.5 bg-gradient-to-t from-blue-500 to-cyan-400 rounded-full shadow-lg"
             animate={{
-              height: [4, 16, 8, 20, 4],
+              height: [6, 20, 10, 24, 6],
             }}
             transition={{
               duration: 1.2,
@@ -85,6 +85,8 @@ const PlayingAnimation = () => {
           />
         ))}
       </div>
+      {/* Premium glow effect */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/20 via-transparent to-cyan-400/20 rounded-2xl pointer-events-none" />
     </div>
   );
 };
@@ -1127,8 +1129,8 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.4 }}
               >
-                <Card className="bg-[#1C1E1F] border-[#424244]">
-                  <CardContent className="py-8 sm:py-12 text-center text-gray-400">
+                <Card className="bg-gradient-to-r from-slate-900/80 via-slate-800/80 to-slate-900/80 border-0 backdrop-blur-xl shadow-2xl">
+                  <CardContent className="py-8 sm:py-12 text-center text-white/70">
                     <motion.div 
                       className="flex flex-col items-center gap-3 sm:gap-4"
                       initial={{ y: 20, opacity: 0 }}
@@ -1146,13 +1148,13 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                           ease: "easeInOut"
                         }}
                       >
-                        <div className="text-gray-600">
-                          <PlayListIcon width={48} height={48} className="sm:w-16 sm:h-16 text-gray-600" />
+                        <div className="text-white/40">
+                          <PlayListIcon width={48} height={48} className="sm:w-16 sm:h-16 text-white/40" />
                         </div>
                       </motion.div>
                       <div>
-                        <p className="text-base sm:text-lg font-medium mb-2">No songs in queue</p>
-                        <p className="text-sm">Add some music to get the party started!</p>
+                        <p className="text-base sm:text-lg font-bold mb-2 text-white/90">No songs in queue</p>
+                        <p className="text-sm text-white/60">Add some music to get the party started!</p>
                       </div>
                       <motion.div 
                         className="flex items-center gap-2 text-xs sm:text-sm"
@@ -1162,7 +1164,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                         <div className="text-current">
                           <SearchIcon width={14} height={14} className="sm:w-4 sm:h-4" />
                         </div>
-                        <span className="text-center">Search and add your favorite tracks</span>
+                        <span className="text-center text-white/50">Search and add your favorite tracks</span>
                       </motion.div>
                     </motion.div>
                   </CardContent>
@@ -1177,7 +1179,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
               >
                 {sortedQueue.map((item, index) => (
                   <motion.div
-                    key={item.id}
+                    key={`queue-item-${item.id}-${index}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ 
@@ -1187,7 +1189,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                     }}
                   >
                     <SongCard
-                      key={item.id}
                       item={item}
                       index={index}
                       isCurrentlyPlaying={false}
@@ -1199,7 +1200,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                     />
                   </motion.div>
                 ))}
-              </div>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>
