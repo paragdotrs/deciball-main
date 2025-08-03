@@ -184,13 +184,21 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
         case 'playback-play':
           if (!isPlaying && !isSeeking && !isDragging) {
-            togglePlayPause();
+            if (customTogglePlayPause) {
+              customTogglePlayPause();
+            } else {
+              togglePlayPause();
+            }
           }
           break;
 
         case 'playback-pause':
           if (isPlaying && !isSeeking && !isDragging) {
-            togglePlayPause();
+            if (customTogglePlayPause) {
+              customTogglePlayPause();
+            } else {
+              togglePlayPause();
+            }
           }
           break;
 
@@ -299,17 +307,18 @@ const AudioController: React.FC<AudioControllerProps> = ({
     console.log('[AudioController] customTogglePlayPause provided:', !!customTogglePlayPause);
     console.log('[AudioController] isAdmin:', isAdmin);
     
-    if (isAdmin) {
-      // Admin controls: broadcast to all users
-      if (customTogglePlayPause) {
-        customTogglePlayPause();
-      } else {
-        togglePlayPause();
-      }
+    // Always use customTogglePlayPause if available (contains admin/listener logic)
+    // Otherwise fall back to direct audio store function
+    if (customTogglePlayPause) {
+      customTogglePlayPause();
     } else {
-      // Listener controls: local only, no broadcast
-      console.log('[AudioController] Listener local play/pause - no broadcast');
-      togglePlayPause(); // Local toggle only
+      // This should only happen if customTogglePlayPause is not provided
+      // In that case, only admin should be able to control playback
+      if (isAdmin) {
+        togglePlayPause();
+      } else {
+        console.log('[AudioController] No customTogglePlayPause provided and user is not admin - ignoring');
+      }
     }
   }, [isAdmin, customTogglePlayPause, togglePlayPause]);
 

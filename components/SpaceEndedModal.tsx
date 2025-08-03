@@ -50,26 +50,26 @@ const SpaceEndedModal: React.FC<SpaceEndedModalProps> = ({
             }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="bg-gradient-to-br from-[#1a1b23] via-[#1e1f28] to-[#22232e] border border-[#2a2b36] rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
               {/* Header */}
               <div className="relative p-6 pb-4">
                 <button
                   onClick={onClose}
-                  className="absolute top-4 right-4 p-1 rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+                  className="absolute top-4 right-4 p-1 rounded-full hover:bg-white/10 transition-colors text-white/70 hover:text-white"
                 >
                   <X size={20} />
                 </button>
                 
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center">
-                    <div className="w-6 h-6 bg-red-500 rounded-full animate-pulse" />
+                  <div className="w-10 h-10 bg-cyan-400/20 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 bg-gradient-to-r from-cyan-400 to-teal-400 rounded-full animate-pulse" />
                   </div>
                   <div>
-                    <h2 className={`text-xl font-semibold text-white ${outfit.className}`}>
+                    <h2 className={`text-xl font-semibold bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent ${outfit.className}`}>
                       Space Ended
                     </h2>
                     {spaceName && (
-                      <p className={`text-sm text-gray-400 ${inter.className}`}>
+                      <p className={`text-sm text-white/70 ${inter.className}`}>
                         "{spaceName}"
                       </p>
                     )}
@@ -80,14 +80,14 @@ const SpaceEndedModal: React.FC<SpaceEndedModalProps> = ({
               {/* Content */}
               <div className="px-6 pb-6">
                 <div className="mb-6">
-                  <p className={`text-gray-300 leading-relaxed ${inter.className}`}>
+                  <p className={`text-white/70 leading-relaxed ${inter.className}`}>
                     {message}
                   </p>
                   
                   {reason === 'admin-left' && (
-                    <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                      <p className={`text-sm text-red-200 ${inter.className}`}>
-                        <span className="font-medium">Admin disconnected:</span> The space creator has left and the session has ended.
+                    <div className="mt-3 p-3 bg-white/5 border border-white/20 rounded-lg">
+                      <p className={`text-sm text-white/70 ${inter.className}`}>
+                        <span className="font-medium text-cyan-400">Admin disconnected:</span> The space creator has left and the session has ended.
                       </p>
                     </div>
                   )}
@@ -99,7 +99,7 @@ const SpaceEndedModal: React.FC<SpaceEndedModalProps> = ({
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={onCreateNewSpace}
-                    className={`w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-4 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-lg ${outfit.className}`}
+                    className={`w-full bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 shadow-lg ${outfit.className}`}
                   >
                     <Plus size={18} />
                     Create New Space
@@ -109,7 +109,7 @@ const SpaceEndedModal: React.FC<SpaceEndedModalProps> = ({
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={onGoHome}
-                    className={`w-full bg-gray-700 hover:bg-gray-600 text-white py-3 px-4 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 ${outfit.className}`}
+                    className={`w-full bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 ${outfit.className}`}
                   >
                     <Home size={18} />
                     Go to Dashboard
