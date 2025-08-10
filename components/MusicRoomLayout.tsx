@@ -1,0 +1,121 @@
+'use client';
+
+import { useState } from 'react';
+import { useIsMobile } from '@/app/hooks/use-mobile';
+import ListenerSidebar from '@/app/components/ListenerSidebar';
+import { SidebarProvider } from '@/app/components/ui/sidebar';
+import { Button } from '@/app/components/ui/button';
+import { Menu } from 'lucide-react';
+import HalftoneWavesBackground from './Background';
+import { DiscordPresence } from './DiscordPresence';
+import { ElectronDetector } from './ElectronDetector';
+
+interface MusicRoomLayoutProps {
+  children: React.ReactNode;
+  userDetails?: any[];
+  connectedUsers?: number;
+  showSidebar?: boolean;
+}
+
+export default function MusicRoomLayout({ 
+  children, 
+  userDetails = [], 
+  connectedUsers = 0, 
+  showSidebar = true 
+}: MusicRoomLayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isMobile = useIsMobile();
+
+  // Generate listeners data for the sidebar
+  const listeners = userDetails.length > 0 ? userDetails : [
+    ...Array.from({ length: connectedUsers }, (_, i) => ({
+      userId: `user-${i}`,
+      isCreator: i === 0,
+      name: i === 0 ? 'Room Creator' : `Listener ${i}`,
+      imageUrl: ''
+    }))
+  ];
+
+  return (
+    <HalftoneWavesBackground>
+      <div className="min-h-screen text-white">
+        <DiscordPresence />
+        <ElectronDetector />
+        
+        <div className="flex min-h-screen">
+          {/* Sidebar - Fixed on desktop, slide-in on mobile */}
+          {showSidebar && !isMobile && (
+            <div className="fixed inset-y-0 left-0 z-50 w-64 flex-shrink-0">
+              <SidebarProvider defaultOpen={false}>
+                <ListenerSidebar listeners={listeners} />
+              </SidebarProvider>
+            </div>
+          )}
+
+          {/* Mobile Sidebar Overlay */}
+          {showSidebar && isMobile && sidebarOpen && (
+            <div className="fixed inset-0 z-50 lg:hidden">
+              <div 
+                className="fixed inset-0 bg-black/50" 
+                onClick={() => setSidebarOpen(false)}
+              />
+              <div className="fixed inset-y-0 left-0 w-64 bg-black/90 backdrop-blur-xl">
+                <SidebarProvider defaultOpen={true}>
+                  <ListenerSidebar listeners={listeners} />
+                </SidebarProvider>
+              </div>
+            </div>
+          )}
+
+          {/* Main Content */}
+          <main className={`flex-1 min-w-0 ${showSidebar && !isMobile ? 'ml-64' : ''}`}>
+            {/* Mobile menu button */}
+            {showSidebar && isMobile && (
+              <div className="lg:hidden sticky top-0 z-40 bg-black/20 backdrop-blur-xl border-b border-white/10">
+                <div className="flex items-center justify-between h-12 px-4">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-white hover:bg-white/10"
+                    onClick={() => setSidebarOpen(true)}
+                  >
+                    <Menu className="h-5 w-5" />
+                    <span className="sr-only">Open sidebar</span>
+                  </Button>
+                  <div className="text-sm font-medium text-white/80">Music Room</div>
+                  <div className="w-10"></div> {/* Spacer for centering */}
+                </div>
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="flex-1 overflow-hidden">
+              {children}
+            </div>
+          </main>
+        </div>
+      </div>
+    </HalftoneWavesBackground>
+  );
+}
+
+// Layout wrapper for music room pages
+export function MusicRoomLayoutWrapper({ 
+  children, 
+  userDetails, 
+  connectedUsers 
+}: { 
+  children: React.ReactNode;
+  userDetails?: any[];
+  connectedUsers?: number;
+}) {
+  return (
+    <MusicRoomLayout 
+      showSidebar={true}
+      userDetails={userDetails}
+      connectedUsers={connectedUsers}
+    >
+      {children}
+    </MusicRoomLayout>
+  );
+}

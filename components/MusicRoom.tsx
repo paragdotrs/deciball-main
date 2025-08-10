@@ -15,14 +15,10 @@ import { Badge } from '@/app/components/ui/badge';
 import { Users, Music, Settings, VolumeX, Volume2, Play, Pause, LogOut, User } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
-import ListenerSidebar from '@/app/components/ListenerSidebar';
-import { SidebarProvider } from '@/app/components/ui/sidebar';
-import { DiscordPresence } from './DiscordPresence';
-import { ElectronDetector } from './ElectronDetector';
-import HalftoneWavesBackground from './Background';
 import BlurText, { BlurComponent } from './ui/BlurEffects';
 import { RecommendationPanel } from './RecommendationPanel';
 import SpaceEndedModal from './SpaceEndedModal';
+import MusicRoomLayout from './MusicRoomLayout';
 import { lexend, poppins, signikaNegative, inter, manrope, spaceGrotesk, jetBrainsMono, outfit } from '@/lib/font';
 
 interface MusicRoomProps {
@@ -372,7 +368,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   
   if (loading || !user) {
     return (
-      <HalftoneWavesBackground>
+      <MusicRoomLayout showSidebar={false}>
         <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
           {/* Background Animation Orbs */}
           <div className="absolute inset-0 pointer-events-none">
@@ -447,319 +443,261 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             }
           `}</style>
         </div>
-      </HalftoneWavesBackground>
+      </MusicRoomLayout>
     );
   }
 
   return (
-    <HalftoneWavesBackground>
-      <div className="flex min-h-screen text-white relative">
-        <DiscordPresence />
-        
-        <ElectronDetector />
-        
-        {/* Sidebar - Only render on desktop, completely hidden on mobile */}
-        {!isMobile && (
-          <div className="flex-shrink-0 relative z-10">
-            <SidebarProvider defaultOpen={false}>
-              <ListenerSidebar 
-                listeners={userDetails.length > 0 ? userDetails : [
-                  ...Array.from({ length: connectedUsers }, (_, i) => ({
-                    userId: `user-${i}`,
-                    isCreator: i === 0,
-                    name: i === 0 ? 'Room Creator' : `Listener ${i}`,
-                    imageUrl: ''
-                  }))
-                ]} 
+    <MusicRoomLayout userDetails={userDetails} connectedUsers={connectedUsers}>
+      {/* Header Section */}
+      <div className="flex items-center justify-center p-2 sm:p-3 md:p-6 w-full overflow-hidden">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 md:gap-8 bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl px-3 sm:px-6 md:px-12 py-3 sm:py-3 md:py-4 shadow-2xl w-full max-w-[95%] sm:max-w-[400px] md:min-w-[900px] md:max-w-5xl">
+          
+          {/* Mobile Layout - Header with profile picture and room name */}
+          <div className="flex items-center justify-between w-full sm:hidden">
+            <div className="flex-1 flex justify-center">
+              <BlurText 
+                text={roomName} 
+                animateBy="words"
+                className={`text-lg font-bold text-white text-center ${spaceGrotesk.className}`}
+                delay={150}
+                direction="top"
               />
-            </SidebarProvider>
-          </div>
-        )}
-
-        {/* Main content with proper positioning */}
-        <div className="flex-1 flex flex-col min-w-0 relative z-20 touch-auto music-room-main-content"
-             style={{ isolation: 'isolate' }}>
-          <div className="flex items-center justify-center p-2 sm:p-3 md:p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 md:gap-8 bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl px-3 sm:px-6 md:px-12 py-3 sm:py-3 md:py-4 shadow-2xl w-full max-w-[95%] sm:max-w-[400px] md:min-w-[900px] md:max-w-5xl">
-              
-              {/* Mobile Layout - Header with profile picture and room name */}
-              <div className="flex items-center justify-between w-full sm:hidden">
-                <div className="flex-1 flex justify-center">
-                  <BlurText 
-                    text={roomName} 
-                    animateBy="words"
-                    className={`text-lg font-bold text-white text-center ${spaceGrotesk.className}`}
-                    delay={150}
-                    direction="top"
-                  />
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300 shadow-lg bg-black/40 backdrop-blur-xl border border-white/20 hover:border-white/30">
-                        <Avatar className="h-9 w-9 ring-1 ring-cyan-400/30 hover:ring-cyan-400/50 transition-all duration-300">
-                          <AvatarImage 
-                            src={getProfilePicture() || undefined} 
-                            alt={String(session?.user?.name || session?.user?.username || 'User')} 
-                            className="object-cover"
-                          />
-                          <AvatarFallback className={`bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold text-sm ${outfit.className}`}>
-                            {getUserInitials()}
-                          </AvatarFallback>
-                        </Avatar>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56 bg-black/90 border-white/20 backdrop-blur-xl" align="end" forceMount>
-                      <DropdownMenuLabel className={`font-normal ${inter.className}`}>
-                        <div className="flex flex-col space-y-1">
-                          <p className={`text-sm font-medium leading-none text-white ${manrope.className}`}>
-                            {session?.user?.name || session?.user?.username || 'User'}
-                          </p>
-                          <p className={`text-xs leading-none text-gray-400 ${jetBrainsMono.className} font-mono`}>
-                            {session?.user?.email}
-                          </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant={isAdmin ? 'default' : 'secondary'} className={`text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0 ${outfit.className} font-medium`}>
-                              {isAdmin ? 'Admin' : 'Listener'}
-                            </Badge>
-                          </div>
-                        </div>
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator className="bg-white/20" />
-                      <DropdownMenuItem 
-                        className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
-                        onClick={() => router.push('/profile')}
-                      >
-                        <User className="mr-2 h-4 w-4" />
-                        <span className={`${outfit.className} font-medium`}>Profile</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
-                        onClick={() => router.push('/settings')}
-                      >
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span className={`${outfit.className} font-medium`}>Settings</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-white/20" />
-                      <DropdownMenuItem 
-                        className={`text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer ${inter.className}`}
-                        onClick={handleLogout}
-                      >
-                        <LogOut className="mr-2 h-4 w-4" />
-                        <span className={`${outfit.className} font-medium text-red-400`}>Log out</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-
-              {/* Desktop Layout - Original layout */}
-              <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-4 md:gap-8 w-full">
-                <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
-                  <BlurText 
-                    text={roomName} 
-                    animateBy="words"
-                    className={`text-base sm:text-lg md:text-xl font-bold text-white text-left truncate flex-1 sm:flex-none ${spaceGrotesk.className}`}
-                    delay={150}
-                    direction="top"
-                  />
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Connection Status Badge with monospace font for technical info */}
-                    {/* <Badge 
-                      variant={
-                        loading ? 'secondary' :
-                        connectionError ? 'destructive' :
-                        socket?.readyState === WebSocket.OPEN ? 'default' : 'secondary'
-                      }
-                      className={`flex items-center gap-1 sm:gap-1.5 bg-black/30 border-white/20 text-gray-200 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs ${jetBrainsMono.className}`}
-                    >
-                      <div 
-                        className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${
-                          loading ? 'bg-yellow-400 animate-pulse' :
-                          connectionError ? 'bg-red-400' :
-                          socket?.readyState === WebSocket.OPEN ? 'bg-emerald-400' : 'bg-gray-400'
-                        }`}
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300 shadow-lg bg-black/40 backdrop-blur-xl border border-white/20 hover:border-white/30">
+                    <Avatar className="h-9 w-9 ring-1 ring-cyan-400/30 hover:ring-cyan-400/50 transition-all duration-300">
+                      <AvatarImage 
+                        src={getProfilePicture() || undefined} 
+                        alt={String(session?.user?.name || session?.user?.username || 'User')} 
+                        className="object-cover"
                       />
-                      <span className="hidden sm:inline">
-                        {loading ? 'Connecting' :
-                         connectionError ? 'Error' :
-                         socket?.readyState === WebSocket.OPEN ? 'Live' : 'Offline'}
-                      </span>
-                      <span className="sm:hidden">
-                        {loading ? '...' :
-                         connectionError ? '!' :
-                         socket?.readyState === WebSocket.OPEN ? '●' : '○'}
-                      </span>
-                    </Badge> */}
-                  </div>
-                </div>
-                
-                <div className="flex-1 w-full sm:max-w-xs md:max-w-xl">
-                  <SearchSongPopup 
-                    onSelect={(track) => {
-                      console.log('Song selected:', track.name);
-                    }}
-                    onBatchSelect={handleBatchAddToQueue}
-                    buttonClassName={`w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-3 sm:px-4 md:px-6 py-2 sm:py-2 md:py-2.5 backdrop-blur-sm transition-all duration-300 text-xs sm:text-sm md:text-base ${inter.className}`}
-                    maxResults={12}
-                    isAdmin={true}
-                    enableBatchSelection={true}
-                    spaceId={spaceId}
-                  />
-                </div>
-
-                <div className="flex items-center justify-center sm:justify-end gap-3">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300">
-                        <Avatar className="h-10 w-10 ring-2 ring-cyan-400/30 hover:ring-cyan-400/50 transition-all duration-300">
-                          <AvatarImage 
-                            src={getProfilePicture() || undefined} 
-                            alt={String(session?.user?.name || session?.user?.username || 'User')} 
-                            className="object-cover"
-                          />
-                          <AvatarFallback className={`bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold ${outfit.className}`}>
-                            {getUserInitials()}
-                          </AvatarFallback>
-                        </Avatar>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56 bg-black/90 border-white/20 backdrop-blur-xl" align="end" forceMount>
-                      <DropdownMenuLabel className={`font-normal ${inter.className}`}>
-                        <div className="flex flex-col space-y-1">
-                          <p className={`text-sm font-medium leading-none text-white ${manrope.className}`}>
-                            {session?.user?.name || session?.user?.username || 'User'}
-                          </p>
-                          <p className={`text-xs leading-none text-gray-400 ${jetBrainsMono.className} font-mono`}>
-                            {session?.user?.email}
-                          </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant={isAdmin ? 'default' : 'secondary'} className={`text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0 ${outfit.className} font-medium`}>
-                              {isAdmin ? 'Admin' : 'Listener'}
-                            </Badge>
-                          </div>
-                        </div>
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator className="bg-white/20" />
-                      <DropdownMenuItem 
-                        className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
-                        onClick={() => router.push('/profile')}
-                      >
-                        <User className="mr-2 h-4 w-4" />
-                        <span className={`${outfit.className} font-medium`}>Profile</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
-                        onClick={() => router.push('/settings')}
-                      >
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span className={`${outfit.className} font-medium`}>Settings</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-white/20" />
-                      <DropdownMenuItem 
-                        className={`text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer ${inter.className}`}
-                        onClick={handleLogout}
-                      >
-                        <LogOut className="mr-2 h-4 w-4" />
-                        <span className={`${outfit.className} font-medium text-red-400`}>Log out</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-
-              {/* Mobile Search - Full width below room info */}
-              <div className="w-full sm:hidden">
-                <SearchSongPopup 
-                  onSelect={(track) => {
-                    console.log('Song selected:', track.name);
-                  }}
-                  onBatchSelect={handleBatchAddToQueue}
-                  buttonClassName={`w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-4 py-2.5 backdrop-blur-sm transition-all duration-300 text-sm ${inter.className}`}
-                  maxResults={12}
-                  isAdmin={true}
-                  enableBatchSelection={true}
-                  spaceId={spaceId}
-                />
-              </div>
+                      <AvatarFallback className={`bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold text-sm ${outfit.className}`}>
+                        {getUserInitials()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-black/90 border-white/20 backdrop-blur-xl" align="end" forceMount>
+                  <DropdownMenuLabel className={`font-normal ${inter.className}`}>
+                    <div className="flex flex-col space-y-1">
+                      <p className={`text-sm font-medium leading-none text-white ${manrope.className}`}>
+                        {session?.user?.name || session?.user?.username || 'User'}
+                      </p>
+                      <p className={`text-xs leading-none text-gray-400 ${jetBrainsMono.className} font-mono`}>
+                        {session?.user?.email}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant={isAdmin ? 'default' : 'secondary'} className={`text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0 ${outfit.className} font-medium`}>
+                          {isAdmin ? 'Admin' : 'Listener'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/20" />
+                  <DropdownMenuItem 
+                    className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
+                    onClick={() => router.push('/profile')}
+                  >
+                    <User className="mr-2 h-4 w-4" />
+                    <span className={`${outfit.className} font-medium`}>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
+                    onClick={() => router.push('/settings')}
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span className={`${outfit.className} font-medium`}>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/20" />
+                  <DropdownMenuItem 
+                    className={`text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer ${inter.className}`}
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span className={`${outfit.className} font-medium text-red-400`}>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
-            <div className="flex p-2 sm:p-4 justify-center">
-              <div className="w-full max-w-[95%] sm:max-w-[400px] md:max-w-[98rem] mx-auto h-full">
-                <div className="flex flex-col md:flex-row md:flex gap-4 md:justify-between h-full min-h-[calc(100vh-200px)]">
-                  {/* Left Column */}
-                  <div className="flex flex-col gap-4 order-1 md:order-1 w-full md:w-auto ml-0 md:ml-0">
-                    <BlurComponent 
-                      delay={500} 
-                      direction="top"
-                      className="flex-shrink-0"
-                      stepDuration={0.4}
-                    >
-                      {showPlayer && (
-                        <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-4 sm:p-6  w-full md:min-w-[625px]">
-                          <Player 
-                            spaceId={spaceId}
-                            isAdmin={isAdmin}
-                            userCount={connectedUsers}
-                            userDetails={userDetails}
-                            className="w-full h-full"
-                          />
-                        </div>
-                      )}
-                    </BlurComponent>
+          {/* Desktop Layout - Original layout */}
+          <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-4 md:gap-8 w-full">
+            <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
+              <BlurText 
+                text={roomName} 
+                animateBy="words"
+                className={`text-base sm:text-lg md:text-xl font-bold text-white text-left truncate flex-1 sm:flex-none ${spaceGrotesk.className}`}
+                delay={150}
+                direction="top"
+              />
+            </div>
+            
+            <div className="flex-1 w-full sm:max-w-xs md:max-w-xl overflow-hidden">
+              <SearchSongPopup 
+                onSelect={(track) => {
+                  console.log('Song selected:', track.name);
+                }}
+                onBatchSelect={handleBatchAddToQueue}
+                buttonClassName={`w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-3 sm:px-4 md:px-6 py-2 sm:py-2 md:py-2.5 backdrop-blur-sm transition-all duration-300 text-xs sm:text-sm md:text-base ${inter.className}`}
+                maxResults={12}
+                isAdmin={true}
+                enableBatchSelection={true}
+                spaceId={spaceId}
+              />
+            </div>
 
-                    <BlurComponent
-                      delay={700}
-                      direction="bottom"
-                      className="flex-1 hidden md:block"
-                      stepDuration={0.4}
-                    >
-                      <RecommendationPanel 
-                        spaceId={spaceId}
-                        isAdmin={isAdmin}
-                        className="w-full"
+            <div className="flex items-center justify-center sm:justify-end gap-3">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300">
+                    <Avatar className="h-10 w-10 ring-2 ring-cyan-400/30 hover:ring-cyan-400/50 transition-all duration-300">
+                      <AvatarImage 
+                        src={getProfilePicture() || undefined} 
+                        alt={String(session?.user?.name || session?.user?.username || 'User')} 
+                        className="object-cover"
                       />
-                    </BlurComponent>
-
-                    
-                  </div>
-                  {/* Right Column - QueueManager */}
-                  <div className="w-full md:min-w-[625px] order-2 md:order-2 ml-0 md:ml-0 overflow-hidden">
-                    <BlurComponent
-                      delay={600}
-                      direction="top"
-                      className="h-full"
-                      stepDuration={0.4}
-                    >
-                      {showQueue && (
-                        <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-3 sm:p-4 md:p-6 h-full w-full max-w-full overflow-hidden">
-                          <QueueManager 
-                            spaceId={spaceId} 
-                            isAdmin={isAdmin}
-                          />
-                        </div>
-                      )}
-                    </BlurComponent>
-                  </div>
-                </div>
-              </div>
+                      <AvatarFallback className={`bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold ${outfit.className}`}>
+                        {getUserInitials()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-black/90 border-white/20 backdrop-blur-xl" align="end" forceMount>
+                  <DropdownMenuLabel className={`font-normal ${inter.className}`}>
+                    <div className="flex flex-col space-y-1">
+                      <p className={`text-sm font-medium leading-none text-white ${manrope.className}`}>
+                        {session?.user?.name || session?.user?.username || 'User'}
+                      </p>
+                      <p className={`text-xs leading-none text-gray-400 ${jetBrainsMono.className} font-mono`}>
+                        {session?.user?.email}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant={isAdmin ? 'default' : 'secondary'} className={`text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0 ${outfit.className} font-medium`}>
+                          {isAdmin ? 'Admin' : 'Listener'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/20" />
+                  <DropdownMenuItem 
+                    className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
+                    onClick={() => router.push('/profile')}
+                  >
+                    <User className="mr-2 h-4 w-4" />
+                    <span className={`${outfit.className} font-medium`}>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
+                    onClick={() => router.push('/settings')}
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span className={`${outfit.className} font-medium`}>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/20" />
+                  <DropdownMenuItem 
+                    className={`text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer ${inter.className}`}
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span className={`${outfit.className} font-medium text-red-400`}>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
+          {/* Mobile Search - Full width below room info */}
+          <div className="w-full sm:hidden overflow-hidden">
+            <SearchSongPopup 
+              onSelect={(track) => {
+                console.log('Song selected:', track.name);
+              }}
+              onBatchSelect={handleBatchAddToQueue}
+              buttonClassName={`w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-4 py-2.5 backdrop-blur-sm transition-all duration-300 text-sm ${inter.className}`}
+              maxResults={12}
+              isAdmin={true}
+              enableBatchSelection={true}
+              spaceId={spaceId}
+            />
+          </div>
         </div>
-        
-        {/* Space Ended Modal */}
-        <SpaceEndedModal
-          isOpen={showSpaceEndedModal}
-          onClose={handleCloseModal}
-          onCreateNewSpace={handleCreateNewSpace}
-          onGoHome={handleGoHome}
-          spaceName={roomName || spaceInfo?.spaceName}
-          reason={spaceEndedReason}
-          message={spaceEndedMessage}
-        />
-    </HalftoneWavesBackground>
-  
+      </div>
+
+      {/* Main Content Section */}
+      <div className="flex p-2 sm:p-4 justify-center w-full overflow-hidden">
+        <div className="w-full max-w-[95%] sm:max-w-[400px] md:max-w-[98rem] mx-auto h-full">
+          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 w-full overflow-hidden h-full min-h-[calc(100vh-200px)]">
+            {/* Left Column */}
+            <div className="flex flex-col gap-4 order-1 lg:order-1 w-full lg:w-auto min-w-0 overflow-hidden">
+              <BlurComponent 
+                delay={500} 
+                direction="top"
+                className="flex-shrink-0 w-full overflow-hidden"
+                stepDuration={0.4}
+              >
+                {showPlayer && (
+                  <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-4 sm:p-6 w-full min-w-0 overflow-hidden">
+                    <Player 
+                      spaceId={spaceId}
+                      isAdmin={isAdmin}
+                      userCount={connectedUsers}
+                      userDetails={userDetails}
+                      className="w-full h-full"
+                    />
+                  </div>
+                )}
+              </BlurComponent>
+
+              <BlurComponent
+                delay={700}
+                direction="bottom"
+                className="flex-1 hidden lg:block w-full overflow-hidden"
+                stepDuration={0.4}
+              >
+                <RecommendationPanel 
+                  spaceId={spaceId}
+                  isAdmin={isAdmin}
+                  className="w-full"
+                />
+              </BlurComponent>
+            </div>
+
+            {/* Right Column - QueueManager */}
+            <div className="w-full lg:min-w-0 order-2 lg:order-2 overflow-hidden min-w-0">
+              <BlurComponent
+                delay={600}
+                direction="top"
+                className="h-full w-full overflow-hidden"
+                stepDuration={0.4}
+              >
+                {showQueue && (
+                  <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-3 sm:p-4 md:p-6 h-full w-full min-w-0 overflow-hidden">
+                    <QueueManager 
+                      spaceId={spaceId} 
+                      isAdmin={isAdmin}
+                    />
+                  </div>
+                )}
+              </BlurComponent>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Space Ended Modal */}
+      <SpaceEndedModal
+        isOpen={showSpaceEndedModal}
+        onClose={handleCloseModal}
+        onCreateNewSpace={handleCreateNewSpace}
+        onGoHome={handleGoHome}
+        spaceName={roomName || spaceInfo?.spaceName}
+        reason={spaceEndedReason}
+        message={spaceEndedMessage}
+      />
+    </MusicRoomLayout>
   );
 };
