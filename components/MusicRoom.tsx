@@ -636,11 +636,11 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
               <BlurComponent 
                 delay={500} 
                 direction="top"
-                className="flex-shrink-0 w-full overflow-hidden"
+                className=" w-full overflow-hidden"
                 stepDuration={0.4}
               >
                 {showPlayer && (
-                  <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-4 sm:p-6 w-full min-w-0 overflow-hidden">
+                  <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-4 sm:p-6 w-[39rem] min-w-0 overflow-hidden">
                     <Player 
                       spaceId={spaceId}
                       isAdmin={isAdmin}
