@@ -629,7 +629,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
 
       {/* Main Content Section */}
       <div className="flex p-2 sm:p-4 justify-center w-full overflow-hidden">
-        <div className="w-full max-w-[95%] sm:max-w-[400px] md:max-w-[98rem] mx-auto h-full">
+        <div className="max-w-[95%] sm:max-w-[400px] md:max-w-[98rem] mx-auto h-full">
           <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 w-full overflow-hidden h-full min-h-[calc(100vh-200px)]">
             {/* Left Column */}
             <div className="flex flex-col gap-4 order-1 lg:order-1 w-full lg:w-auto min-w-0 overflow-hidden">
