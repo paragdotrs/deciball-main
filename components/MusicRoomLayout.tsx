@@ -58,11 +58,11 @@ export default function MusicRoomLayout({
 
   return (
     <HalftoneWavesBackground>
-      <div className="min-h-screen text-white">
+      <div className="h-screen text-white overflow-hidden">
         <DiscordPresence />
         <ElectronDetector />
         
-        <div className="flex min-h-screen">
+        <div className="flex h-screen">
           {/* Sidebar - Fixed on desktop, slide-in on mobile */}
           {showSidebar && !isMobile && (
             <div className="fixed inset-y-0 left-0 z-50 w-64 flex-shrink-0">
@@ -88,7 +88,7 @@ export default function MusicRoomLayout({
           )}
 
           {/* Main Content */}
-          <main className={`flex-1 min-w-0 ${showSidebar && !isMobile ? 'ml-64' : ''}`}>
+          <main className={`flex-1 min-w-0 h-screen overflow-hidden ${showSidebar && !isMobile ? 'ml-64' : ''}`}>
             {/* Mobile menu button */}
             {showSidebar && isMobile && (
               <div className="lg:hidden sticky top-0 z-40 bg-black/20 backdrop-blur-xl border-b border-white/10">
@@ -109,7 +109,7 @@ export default function MusicRoomLayout({
             )}
 
             {/* Content */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden h-full">
               {children}
             </div>
           </main>

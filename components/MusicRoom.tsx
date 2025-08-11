@@ -624,15 +624,15 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       </div>
 
       {/* Main Content Section */}
-      <div className="flex p-2 sm:p-4 justify-center w-full overflow-hidden">
+      <div className="flex p-2 sm:p-4 justify-center w-full overflow-hidden h-[calc(100vh-150px)]">
         <div className="max-w-[95%] sm:max-w-[400px] md:max-w-[98rem] mx-auto h-full">
-          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 w-full overflow-hidden h-full min-h-[calc(100vh-200px)]">
+          <div className="relative hide-scrollbar max-md:w-full max-md:rounded-none max-md:border-none max-md:flex-col h-full rounded-2xl p-4 md:p-6 lg:p-8 overflow-hidden flex lg:grid lg:grid-cols-2 gap-4 lg:gap-6">
             {/* Left Column */}
-            <div className="flex flex-col gap-4 order-1 lg:order-1 w-full lg:w-auto min-w-0 overflow-hidden">
+            <div className="flex flex-col gap-4 order-1 lg:order-1 w-full lg:w-auto min-w-0 overflow-hidden h-full">
               <BlurComponent 
                 delay={500} 
                 direction="top"
-                className=" w-full overflow-hidden"
+                className="w-full overflow-hidden flex-shrink-0"
                 stepDuration={0.4}
               >
                 {showPlayer && (
@@ -651,38 +651,40 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
               <BlurComponent
                 delay={700}
                 direction="bottom"
-                className="flex-1 hidden lg:block w-full overflow-hidden"
+                className="flex-1 hidden lg:block w-full min-h-0"
                 stepDuration={0.4}
               >
                 <RecommendationPanel 
                   spaceId={spaceId}
                   isAdmin={isAdmin}
-                  className="w-full"
+                  className="w-full h-full"
                 />
               </BlurComponent>
             </div>
 
             {/* Right Column - QueueManager */}
-            <div className="w-full lg:min-w-0 order-2 lg:order-2 overflow-hidden min-w-0">
-              <BlurComponent
+            <div className="w-full lg:min-w-0 order-2 lg:order-2 overflow-hidden min-w-0 h-full max-h-full">
+              {/* <BlurComponent
                 delay={600}
                 direction="top"
                 className="h-full w-full overflow-hidden"
                 stepDuration={0.4}
-              >
+              > */}
                 {showQueue && (
-                  <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-3 sm:p-4 md:p-6 h-full w-full min-w-0 overflow-hidden">
+                  <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-3 sm:p-4 md:p-6 w-full min-w-0 h-full max-h-full overflow-hidden">
                     <QueueManager 
                       spaceId={spaceId} 
                       isAdmin={isAdmin}
                     />
                   </div>
                 )}
-              </BlurComponent>
+              {/* </BlurComponent> */}
             </div>
           </div>
         </div>
       </div>
+
+
 
       {/* Space Ended Modal */}
       <SpaceEndedModal

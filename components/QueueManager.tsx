@@ -1003,15 +1003,16 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   }, [socket, isProcessingPlaylist]);
 
   return (
-    <div className="space-y-4 sm:space-y-6 w-full max-w-full md:w-[32rem] md:max-w-[32rem] flex-shrink-0 queue-container h-[calc(100vh-8rem)] flex flex-col">
+<div className="h-full hide-scrollbar w-full max-w-full md:w-[32rem] md:max-w-[32rem] flex-shrink-0 flex flex-col overflow-hidden">
       <motion.div 
-        className="space-y-4 sm:space-y-6 w-full max-w-full flex flex-col h-full"
+        className="flex flex-col w-full h-full overflow-hidden p-2 sm:p-3"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
+        {/* Header - Fixed */}
         <motion.div 
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 flex-shrink-0"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 flex-shrink-0 mb-2"
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
@@ -1192,21 +1193,21 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
               </>
             )}
           </div>
-          
-        
         </motion.div>
 
-        <AnimatePresence mode="wait">
-        {currentPlaying && (
-          <motion.div
-            key="currently-playing"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.4 }}
-            className="flex-shrink-0"
-          >
-            <div className="mb-3 sm:mb-4">
+        {/* Scrollable Content Area */}
+        <div className="flex-1  w-full flex flex-col min-h-0 overflow-hidden">
+          {/* Currently Playing - Fixed */}
+          <AnimatePresence mode="wait">
+          {currentPlaying && (
+            <motion.div
+              key="currently-playing"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.4 }}
+              className="flex-shrink-0 mb-4"
+            >
               <motion.h3 
                 className="text-base sm:text-lg font-semibold text-white mb-2 sm:mb-3 flex items-center gap-2"
                 initial={{ x: -10, opacity: 0 }}
@@ -1228,266 +1229,120 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                 onRemove={() => handleRemoveSong(currentPlaying.id)}
                 onPlayInstant={() => {}}
               />
-            </div>
-          </motion.div>
-        )}
-        </AnimatePresence>
-
-        <div className="space-y-3 sm:space-y-4 flex flex-col h-full flex-1 min-h-0">
-        <motion.h3 
-          className="text-base sm:text-lg font-semibold text-white flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-shrink-0"
-          initial={{ x: -10, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-        >
-          <span>Up Next</span>
-          <motion.span 
-            className="text-xs sm:text-sm font-normal text-gray-400"
-            animate={{ opacity: [0.7, 1, 0.7] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            ({sortedQueue.length} songs)
-          </motion.span>
-        </motion.h3>
-        
-        {/* Scrollable Queue Container */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 hover:scrollbar-thumb-gray-500 pr-1">
-          <AnimatePresence mode="popLayout">
-            {sortedQueue.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.4 }}
-              >
-                <Card className="bg-[#1C1E1F] border-[#424244]">
-                  <CardContent className="py-8 sm:py-12 text-center text-gray-400">
-                    <motion.div 
-                      className="flex flex-col items-center gap-3 sm:gap-4"
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: 0.2 }}
-                    >
-                      <motion.div
-                        animate={{ 
-                          rotate: [0, 5, -5, 0],
-                          scale: [1, 1.05, 1]
-                        }}
-                        transition={{ 
-                          duration: 4, 
-                          repeat: Infinity,
-                          ease: "easeInOut"
-                        }}
-                      >
-                        <div className="text-gray-600">
-                          <PlayListIcon width={48} height={48} className="sm:w-16 sm:h-16 text-gray-600" />
-                        </div>
-                      </motion.div>
-                      <div>
-                        <p className="text-base sm:text-lg font-medium mb-2">No songs in queue</p>
-                        <p className="text-sm">Add some music to get the party started!</p>
-                      </div>
-                      <motion.div 
-                        className="flex items-center gap-2 text-xs sm:text-sm"
-                        animate={{ opacity: [0.5, 1, 0.5] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      >
-                        <div className="text-current">
-                          <SearchIcon width={14} height={14} className="sm:w-4 sm:h-4" />
-                        </div>
-                        <span className="text-center">Search and add your favorite tracks</span>
-                      </motion.div>
-                    </motion.div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ) : (
-              <div className="space-y-2 sm:space-y-3 pb-2">
-                {sortedQueue.map((item, index) => (
-                  <SongCard
-                    key={item.id}
-                    item={item}
-                    index={index}
-                    isCurrentlyPlaying={false}
-                    isAdmin={adminStatus}
-                    hasUserVoted={hasUserVoted(item)}
-                    onVote={() => handleVote(item.id)}
-                    onRemove={() => handleRemoveSong(item.id)}
-                    onPlayInstant={() => handlePlayInstant(item.id)}
-                  />
-                ))}
-              </div>
-            )}
+            </motion.div>
+          )}
           </AnimatePresence>
+
+          {/* Up Next Header - Fixed */}
+          <motion.h3 
+            className="text-base sm:text-lg font-semibold text-white flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-shrink-0 mb-2"
+            initial={{ x: -10, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <span>Up Next</span>
+            <motion.span 
+              className="text-xs sm:text-sm font-normal text-gray-400"
+              animate={{ opacity: [0.7, 1, 0.7] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              ({sortedQueue.length} songs)
+            </motion.span>
+          </motion.h3>
+          
+          {/* Scrollable Queue Songs */}
+          <div className="flex-1 hide-scrollbar overflow-y-auto min-h-0 pr-1">
+            <AnimatePresence mode="popLayout">
+              {sortedQueue.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Card className="bg-[#1C1E1F] border-[#424244]">
+                    <CardContent className="py-8 sm:py-12 text-center text-gray-400">
+                      <motion.div 
+                        className="flex flex-col items-center gap-3 sm:gap-4"
+                        initial={{ y: 20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        <motion.div
+                          animate={{ 
+                            rotate: [0, 5, -5, 0],
+                            scale: [1, 1.05, 1]
+                          }}
+                          transition={{ 
+                            duration: 4, 
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
+                        >
+                          <div className="text-gray-600">
+                            <PlayListIcon width={48} height={48} className="sm:w-16 sm:h-16 text-gray-600" />
+                          </div>
+                        </motion.div>
+                        <div>
+                          <p className="text-base sm:text-lg font-medium mb-2">No songs in queue</p>
+                          <p className="text-sm">Add some music to get the party started!</p>
+                        </div>
+                        <motion.div 
+                          className="flex items-center gap-2 text-xs sm:text-sm"
+                          animate={{ opacity: [0.5, 1, 0.5] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
+                          <div className="text-current">
+                            <SearchIcon width={14} height={14} className="sm:w-4 sm:h-4" />
+                          </div>
+                          <span className="text-center">Search and add your favorite tracks</span>
+                        </motion.div>
+                      </motion.div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ) : (
+                <div className="space-y-2 sm:space-y-3 pb-2">
+                  {sortedQueue.map((item, index) => (
+                    <SongCard
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      isCurrentlyPlaying={false}
+                      isAdmin={adminStatus}
+                      hasUserVoted={hasUserVoted(item)}
+                      onVote={() => handleVote(item.id)}
+                      onRemove={() => handleRemoveSong(item.id)}
+                      onPlayInstant={() => handlePlayInstant(item.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
-    </motion.div>
-    
-    <style jsx>{`
-      /* Custom Scrollbar Styles */
-      .scrollbar-thin {
-        scrollbar-width: thin;
-        scrollbar-color: #4b5563 transparent;
-      }
+      </motion.div>
       
-      .scrollbar-thin::-webkit-scrollbar {
-        width: 6px;
-      }
-      
-      .scrollbar-thin::-webkit-scrollbar-track {
-        background: transparent;
-        border-radius: 3px;
-      }
-      
-      .scrollbar-thin::-webkit-scrollbar-thumb {
-        background: #4b5563;
-        border-radius: 3px;
-        transition: background-color 0.2s ease;
-      }
-      
-      .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-        background: #6b7280;
-      }
-      
-      /* Ensure smooth scrolling */
-      .scrollbar-thin {
-        scroll-behavior: smooth;
-      }
-
-      .text-current svg path {
-        stroke: currentColor !important;
-      }
-      .text-green-400 svg path {
-        stroke: #4ade80 !important;
-      }
-      .text-gray-500 svg path {
-        stroke: #6b7280 !important;
-      }
-      .text-gray-600 svg path {
-        stroke: #4b5563 !important;
-      }
-      .text-white svg path {
-        stroke: #ffffff !important;
-      }
-      .text-blue-400 svg path {
-        stroke: #60a5fa !important;
-      }
-      button:hover .text-current svg path {
-        stroke: currentColor !important;
-      }
-      button:hover .text-white svg path {
-        stroke: #ffffff !important;
-      }
-      
-      /* Simplified mobile optimizations */
-      button, [role="button"] {
-        -webkit-tap-highlight-color: transparent;
-        touch-action: manipulation;
-        user-select: none;
-      }
-      
-      /* Enhanced mobile feedback */
-      button:active, [role="button"]:active {
-        transform: scale(0.95) !important;
-        transition: transform 0.1s ease !important;
-      }
-      
-      /* Ensure minimum touch targets */
-      @media (max-width: 640px) {
-        button {
-          min-height: 44px !important;
-          min-width: 44px !important;
-          position: relative !important;
-        }
-        
-        /* Prevent horizontal overflow on mobile */
-        .queue-container {
-          max-width: 100vw !important;
-          overflow-x: hidden !important;
-          padding-left: 0 !important;
-          padding-right: 0 !important;
-          margin-left: 0 !important;
-          margin-right: 0 !important;
-          height: calc(100vh - 6rem) !important; /* Adjusted for mobile */
-        }
-        
-        /* Ensure cards don't overflow */
-        .queue-card {
-          max-width: 100% !important;
-          box-sizing: border-box !important;
-          margin-left: 0 !important;
-          margin-right: 0 !important;
-        }
-        
-        /* Prevent text overflow */
-        .queue-text {
-          word-break: break-word !important;
-          overflow-wrap: break-word !important;
-          max-width: 100% !important;
-        }
-        
-        /* Mobile specific container adjustments */
-        .queue-container * {
-          box-sizing: border-box !important;
-        }
-        
-        /* Ensure mobile containers don't squeeze */
-        .queue-container .space-y-4 {
-          width: 100% !important;
-          max-width: 100% !important;
-        }
-        
-        /* Mobile scrollbar adjustments */
-        .scrollbar-thin::-webkit-scrollbar {
-          width: 4px;
-        }
-      }
-
-      /* Force hardware acceleration for smoother animations */
-      button, [role="button"], .group {
-        transform: translateZ(0);
-        -webkit-transform: translateZ(0);
-        will-change: transform;
-      }
-      
-      /* Prevent accidental zoom on double tap for specific elements only */
-      button, [role="button"], .group {
-        touch-action: manipulation !important;
-      }
-      
-      /* Admin-only queue card states */
-      .queue-card.cursor-not-allowed:hover {
-        transform: none !important;
-        background-color: #1C1E1F !important;
-        box-shadow: none !important;
-        ring: none !important;
-      }
-      
-      .queue-card.cursor-not-allowed:active {
-        transform: none !important;
-      }
-    `}</style>
-    
-    {/* Chat Overlay */}
-    {showChatOverlay && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        {/* Backdrop */}
-        <div 
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={() => setShowChatOverlay(false)}
-        />
-        
-        {/* Chat Container */}
-        <div className="relative w-full max-w-md h-[80vh] mx-4">
-          <Chat 
-            spaceId={spaceId} 
-            className="w-full h-full"
-            isOverlay={true}
-            onClose={() => setShowChatOverlay(false)}
+      {/* Chat Overlay */}
+      {showChatOverlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowChatOverlay(false)}
           />
+          
+          {/* Chat Container */}
+          <div className="relative w-full max-w-md h-[80vh] mx-4">
+            <Chat 
+              spaceId={spaceId} 
+              className="w-full h-full"
+              isOverlay={true}
+              onClose={() => setShowChatOverlay(false)}
+            />
+          </div>
         </div>
-      </div>
-    )}
-  </div>
+      )}
+    </div>
   );
 };
