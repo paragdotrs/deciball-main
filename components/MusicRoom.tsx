@@ -238,6 +238,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             setConnectedUsers(data.userCount || data.connectedUsers || 0);
             if (data.userDetails) {
               console.log('Updating userDetails:', data.userDetails);
+              console.log('UserDetails structure:', JSON.stringify(data.userDetails, null, 2));
               setUserDetails(data.userDetails);
             }
             console.log('Updated user count:', data.userCount || data.connectedUsers || 0);
@@ -349,9 +350,10 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       // Fallback requests after joining
       setTimeout(() => {
         if (socket?.readyState === WebSocket.OPEN) {
-          console.log('Requesting current song as fallback...');
+          console.log('Requesting current song and room users as fallback...');
           sendMessage('get-current-song', { spaceId });
           sendMessage('get-space-image', { spaceId });
+          sendMessage('get-room-users', { spaceId });
         }
       }, 1000);
     }
@@ -490,7 +492,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                         {session?.user?.email}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge variant={isAdmin ? 'default' : 'secondary'} className={`text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0 ${outfit.className} font-medium`}>
+                        <Badge variant={isAdmin ? 'default' : 'secondary'} className={`text-xs bg-white text-black border-0 ${outfit.className} font-medium`}>
                           {isAdmin ? 'Admin' : 'Listener'}
                         </Badge>
                       </div>
@@ -504,13 +506,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                     <User className="mr-2 h-4 w-4" />
                     <span className={`${outfit.className} font-medium`}>Profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
-                    onClick={() => router.push('/settings')}
-                  >
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span className={`${outfit.className} font-medium`}>Settings</span>
-                  </DropdownMenuItem>
+                  
                   <DropdownMenuSeparator className="bg-white/20" />
                   <DropdownMenuItem 
                     className={`text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer ${inter.className}`}

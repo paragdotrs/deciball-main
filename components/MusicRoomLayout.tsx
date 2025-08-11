@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useIsMobile } from '@/app/hooks/use-mobile';
 import ListenerSidebar from '@/app/components/ListenerSidebar';
 import { SidebarProvider } from '@/app/components/ui/sidebar';
@@ -27,14 +27,34 @@ export default function MusicRoomLayout({
   const isMobile = useIsMobile();
 
   // Generate listeners data for the sidebar
-  const listeners = userDetails.length > 0 ? userDetails : [
-    ...Array.from({ length: connectedUsers }, (_, i) => ({
-      userId: `user-${i}`,
-      isCreator: i === 0,
-      name: i === 0 ? 'Room Creator' : `Listener ${i}`,
-      imageUrl: ''
-    }))
-  ];
+  const listeners = useMemo(() => {
+    // Debug log to see what we're receiving
+    console.log('MusicRoomLayout - userDetails:', userDetails);
+    console.log('MusicRoomLayout - connectedUsers:', connectedUsers);
+
+    // If we have actual user details, use them
+    if (userDetails && userDetails.length > 0) {
+      return userDetails.map((user, index) => ({
+        userId: user.userId || user.id || `user-${index}`,
+        isCreator: user.isCreator || user.isAdmin || user.role === 'admin' || false,
+        name: user.name || user.username || `User ${index + 1}`,
+        imageUrl: user.imageUrl || user.image || user.pfpUrl || ''
+      }));
+    }
+
+    // Fallback: create placeholder users based on connected count
+    if (connectedUsers > 0) {
+      return Array.from({ length: connectedUsers }, (_, i) => ({
+        userId: `user-${i}`,
+        isCreator: i === 0,
+        name: i === 0 ? 'Room Creator' : `Listener ${i + 1}`,
+        imageUrl: ''
+      }));
+    }
+
+    // No users at all
+    return [];
+  }, [userDetails, connectedUsers]);
 
   return (
     <HalftoneWavesBackground>

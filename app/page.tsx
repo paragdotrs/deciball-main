@@ -10,9 +10,10 @@ import { Input } from "@/app/components/ui/input";
 import { Loader2, Play } from "lucide-react";
 import BackgroundAnimation from "@/components/Background";
 import { signikaNegative, lexend, poppins, spaceGrotesk } from "@/lib/font";
-import axios from "axios";
 import GlitchText from "@/components/ui/glitch-text";
 import SignInDialog from "@/components/ui/SignInDialog";
+import { useUserSpaces, useCreateSpace, usePrefetchUserSpaces } from "@/app/hooks/useSpaces";
+import { SpacesGridSkeleton } from "@/app/components/ui/SpaceSkeleton";
 
 interface Space {
   id: string;
@@ -27,44 +28,39 @@ interface Space {
 export default function Page() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [spaces, setSpaces] = useState<Space[]>([]);
-  const [loading, setLoading] = useState(false);
   const [spaceName, setSpaceName] = useState("");
   const [showPastSpaces, setShowPastSpaces] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
   const [showSignInDialog, setShowSignInDialog] = useState(false);
-  const [initialLoad, setInitialLoad] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const fetchSpaces = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get('/api/spaces');
-      const fetchedSpaces = response.data.spaces || [];
-      setSpaces(fetchedSpaces);
+  // React Query hooks
+  const { 
+    data: spaces = [], 
+    isLoading: spacesLoading, 
+    error: spacesError,
+    refetch: refetchSpaces 
+  } = useUserSpaces();
+  
+  const createSpaceMutation = useCreateSpace();
+  const prefetchUserSpaces = usePrefetchUserSpaces();
+
+  // Auto-show spaces if user is authenticated and has spaces
+  useEffect(() => {
+    if (status === 'authenticated' && !initialLoadComplete) {
+      // Prefetch spaces for better UX
+      prefetchUserSpaces();
       
-      // If this is the initial load and user has spaces, show them
-      if (initialLoad && fetchedSpaces.length > 0) {
+      // If user has spaces, show them automatically
+      if (spaces.length > 0) {
         setShowPastSpaces(true);
       }
-      setInitialLoad(false);
-    } catch (error) {
-      console.error('Error fetching spaces:', error);
-      setInitialLoad(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Auto-fetch spaces when user is authenticated
-  useEffect(() => {
-    if (status === 'authenticated' && initialLoad) {
-      fetchSpaces();
+      setInitialLoadComplete(true);
     } else if (status !== 'loading' && status !== 'authenticated') {
-      setInitialLoad(false);
+      setInitialLoadComplete(true);
     }
-  }, [status, initialLoad]);
+  }, [status, spaces.length, initialLoadComplete, prefetchUserSpaces]);
 
   const handleCreateSpace = async () => {
     if (!spaceName.trim()) return;
@@ -75,18 +71,17 @@ export default function Page() {
     }
 
     try {
-      setIsCreating(true);
-      const response = await axios.post('/api/spaces', {
+      const newSpace = await createSpaceMutation.mutateAsync({
         spaceName: spaceName.trim()
       });
       
-      if (response.data.space) {
-        router.push(`/space/${response.data.space.id}`);
+      if (newSpace) {
+        router.push(`/space/${newSpace.id}`);
       }
     } catch (error) {
       console.error('Error creating space:', error);
-    } finally {
-      setIsCreating(false);
+      // Error is handled by the mutation's onError callback
+      // You could add a toast notification here if needed
     }
   };
 
@@ -101,8 +96,9 @@ export default function Page() {
     }
     
     setShowPastSpaces(true);
+    // The data should already be cached, but we can trigger a background refetch if needed
     if (spaces.length === 0) {
-      fetchSpaces();
+      refetchSpaces();
     }
   };
 
@@ -134,7 +130,7 @@ export default function Page() {
       
       <div className="relative z-10 min-h-screen">
         {/* Show loading during initial authentication and space fetch */}
-        {(status === 'loading' || (status === 'authenticated' && initialLoad)) && (
+        {(status === 'loading' || (status === 'authenticated' && !initialLoadComplete)) && (
           <div className="min-h-screen flex items-center justify-center">
             <div className="text-center">
               <Loader2 className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
@@ -144,7 +140,7 @@ export default function Page() {
         )}
 
         {/* Main content when not loading */}
-        {status !== 'loading' && !initialLoad && (
+        {status !== 'loading' && initialLoadComplete && (
           <AnimatePresence mode="wait">
             {!showPastSpaces ? (
             <motion.div
@@ -198,7 +194,7 @@ export default function Page() {
                   onChange={(e) => setSpaceName(e.target.value)}
                   onKeyPress={handleKeyPress}
                   className="w-full px-3 xs:px-4 sm:px-6 md:px-8 py-3 xs:py-4 sm:py-5 md:py-6 bg-white text-black placeholder-gray-500 text-base xs:text-lg sm:text-xl border-2 border-gray-300 rounded-xl focus:border-black focus:ring-0 focus:outline-none transition-all duration-300"
-                  disabled={isCreating}
+                  disabled={createSpaceMutation.isPending}
                 />
               </motion.div>
 
@@ -216,10 +212,10 @@ export default function Page() {
                   }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleCreateSpace}
-                  disabled={!spaceName.trim() || isCreating}
+                  disabled={!spaceName.trim() || createSpaceMutation.isPending}
                   className={`${poppins.className} bg-black text-white px-6 xs:px-8 sm:px-12 md:px-16 py-3 xs:py-4 sm:py-5 text-base xs:text-lg sm:text-xl font-semibold rounded-2xl hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 border-2 border-transparent hover:border-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-300/50 w-full sm:w-auto min-w-[200px] mobile-touch-target active:scale-95`}
                 >
-                  {isCreating ? (
+                  {createSpaceMutation.isPending ? (
                     <div className="flex items-center justify-center gap-3">
                       <Loader2 className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 animate-spin" />
                       <span>Creating...</span>
@@ -246,6 +242,12 @@ export default function Page() {
                       }}
                       whileTap={{ scale: 0.95 }}
                       onClick={handleViewPastSpaces}
+                      onMouseEnter={() => {
+                        // Prefetch spaces on hover for better UX
+                        if (status === 'authenticated') {
+                          prefetchUserSpaces();
+                        }
+                      }}
                       className={`${poppins.className} text-white/80 hover:text-white transition-all duration-300 text-sm xs:text-base sm:text-lg font-medium group bg-white/10 backdrop-blur-md px-4 xs:px-6 sm:px-8 py-2 xs:py-2.5 sm:py-3 rounded-full border border-white/20 hover:border-white/40 hover:bg-white/20 w-full sm:w-auto max-w-xs xs:max-w-sm text-center`}
                     >
                       <div className="flex items-center justify-center gap-2">
@@ -312,9 +314,22 @@ export default function Page() {
                   </motion.p>
                 </div>
 
-                {loading ? (
-                  <div className="flex justify-center py-8 xs:py-12 sm:py-16">
-                    <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+                {spacesLoading ? (
+                  <div className="py-8 xs:py-12 sm:py-16">
+                    <SpacesGridSkeleton count={3} />
+                  </div>
+                ) : spacesError ? (
+                  <div className="text-center py-8 xs:py-12 sm:py-16 px-3 xs:px-4">
+                    <h3 className="text-base xs:text-lg sm:text-xl font-bold text-red-400 mb-2 xs:mb-3 sm:mb-4">Error Loading Spaces</h3>
+                    <p className="text-zinc-500 mb-3 xs:mb-4 sm:mb-6 text-xs xs:text-sm sm:text-base">
+                      {spacesError instanceof Error ? spacesError.message : 'Something went wrong while loading your spaces.'}
+                    </p>
+                    <Button
+                      onClick={() => refetchSpaces()}
+                      className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 w-full sm:w-auto"
+                    >
+                      Try Again
+                    </Button>
                   </div>
                 ) : spaces.length === 0 ? (
                   <motion.div
