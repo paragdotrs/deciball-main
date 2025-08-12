@@ -12,7 +12,7 @@ import { Player } from './Player';
 import SearchSongPopup from '@/app/components/Search';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { Users, Music, Settings, VolumeX, Volume2, Play, Pause, LogOut, User } from 'lucide-react';
+import { Users, Music, Settings, VolumeX, Volume2, Play, Pause, LogOut, User, Share2, Copy, Check } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
 import BlurText, { BlurComponent } from './ui/BlurEffects';
@@ -40,6 +40,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   const [showPlayer, setShowPlayer] = useState(true);
   const [userDetails, setUserDetails] = useState<any[]>([]);
   const [spaceInfo, setSpaceInfo] = useState<{ spaceName: string; hostId: string } | null>(null);
+  const [shareClicked, setShareClicked] = useState(false);
   
   // Space ended modal state
   const [showSpaceEndedModal, setShowSpaceEndedModal] = useState(false);
@@ -69,6 +70,37 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       await signOut({ callbackUrl: '/signin' });
     } catch (error) {
       console.error('Logout error:', error);
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      const spaceUrl = `${window.location.origin}/space/${spaceId}`;
+      
+      // Try to use the Web Share API if available (mobile devices)
+      if (navigator.share) {
+        await navigator.share({
+          title: `Join ${roomName} on Deciball`,
+          text: `Listen to music together in ${roomName}!`,
+          url: spaceUrl,
+        });
+      } else {
+        // Fallback to clipboard
+        await navigator.clipboard.writeText(spaceUrl);
+        setShareClicked(true);
+        setTimeout(() => setShareClicked(false), 2000);
+      }
+    } catch (error) {
+      // If clipboard fails, try manual selection method
+      try {
+        const spaceUrl = `${window.location.origin}/space/${spaceId}`;
+        await navigator.clipboard.writeText(spaceUrl);
+        setShareClicked(true);
+        setTimeout(() => setShareClicked(false), 2000);
+      } catch (clipboardError) {
+        console.error('Failed to copy to clipboard:', clipboardError);
+        // Could show a toast notification here
+      }
     }
   };
 
@@ -467,6 +499,18 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
               />
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                onClick={handleShare}
+                variant="ghost"
+                size="sm"
+                className="h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300 shadow-lg bg-black/40 backdrop-blur-xl border border-white/20 hover:border-white/30"
+              >
+                {shareClicked ? (
+                  <Check className="h-4 w-4 text-green-400" />
+                ) : (
+                  <Share2 className="h-4 w-4 text-gray-300 hover:text-white" />
+                )}
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300 shadow-lg bg-black/40 backdrop-blur-xl border border-white/20 hover:border-white/30">
@@ -547,6 +591,19 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             </div>
 
             <div className="flex items-center justify-center sm:justify-end gap-3">
+              <Button
+                onClick={handleShare}
+                variant="ghost"
+                size="sm"
+                className="h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300 shadow-lg bg-black/40 backdrop-blur-xl border border-white/20 hover:border-white/30"
+                title={shareClicked ? "Link copied!" : "Share space"}
+              >
+                {shareClicked ? (
+                  <Check className="h-4 w-4 text-green-400" />
+                ) : (
+                  <Share2 className="h-4 w-4 text-gray-300 hover:text-white" />
+                )}
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300">
@@ -648,7 +705,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                 )}
               </BlurComponent>
 
-              <BlurComponent
+              {/* <BlurComponent
                 delay={700}
                 direction="bottom"
                 className="flex-1 hidden lg:block w-full min-h-0"
@@ -659,7 +716,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                   isAdmin={isAdmin}
                   className="w-full h-full"
                 />
-              </BlurComponent>
+              </BlurComponent> */}
             </div>
 
             {/* Right Column - QueueManager */}

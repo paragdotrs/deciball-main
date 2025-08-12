@@ -33,6 +33,8 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
   const [newMessage, setNewMessage] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showNewMessagePopup, setShowNewMessagePopup] = useState(false);
+  const [latestMessage, setLatestMessage] = useState<ChatMessage | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { sendMessage } = useSocket();
@@ -73,15 +75,25 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
 
       setMessages(prev => [...prev, newChatMessage]);
       
-      // Only increment unread count if chat is closed and not in overlay mode
-      if (!isOpen && !isOverlay) {
+      // Only show notifications for messages from other users
+      const isFromCurrentUser = userId === user?.id;
+      
+      // Only increment unread count and show popup if chat is closed and not in overlay mode
+      if (!isOpen && !isOverlay && !isFromCurrentUser) {
         setUnreadCount(prev => prev + 1);
+        setLatestMessage(newChatMessage);
+        setShowNewMessagePopup(true);
+        
+        // Auto hide popup after 4 seconds
+        setTimeout(() => {
+          setShowNewMessagePopup(false);
+        }, 4000);
       }
     };
 
     window.addEventListener('chat-message', handleChatMessage as EventListener);
     return () => window.removeEventListener('chat-message', handleChatMessage as EventListener);
-  }, [isOpen, isOverlay]);
+  }, [isOpen, isOverlay, user?.id]);
 
   const handleSendMessage = useCallback(() => {
     if (!newMessage.trim() || !user) return;
@@ -114,6 +126,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
       setIsOpen(prev => !prev);
       if (!isOpen) {
         setUnreadCount(0);
+        setShowNewMessagePopup(false); // Hide popup when opening chat
       }
     }
   }, [isOpen, isOverlay, onClose]);
@@ -357,6 +370,102 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                 <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-cyan-400 to-teal-400 text-white text-xs min-w-[24px] h-6 rounded-full p-0 flex items-center justify-center border-2 border-black shadow-lg">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </Badge>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* New Message Popup */}
+          <AnimatePresence>
+            {showNewMessagePopup && latestMessage && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: 10, x: 50 }}
+                animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+                exit={{ opacity: 0, scale: 0.8, y: -10, x: 50 }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 400, 
+                  damping: 25,
+                  opacity: { duration: 0.3 }
+                }}
+                className="absolute -top-20 -right-4 sm:-right-8 w-64 sm:w-72 bg-black/95 backdrop-blur-xl border border-cyan-400/50 rounded-2xl shadow-2xl shadow-cyan-400/20 p-4 z-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowNewMessagePopup(false);
+                  toggleChat();
+                }}
+                style={{ cursor: 'pointer' }}
+              >
+                {/* Popup Arrow */}
+                <div className="absolute bottom-[-8px] right-8 w-4 h-4 bg-black/95 border-r border-b border-cyan-400/50 transform rotate-45"></div>
+                
+                {/* Popup Header */}
+                <div className="flex items-center gap-2 mb-2">
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                    className="w-2 h-2 bg-cyan-400 rounded-full"
+                  />
+                  <span className={`text-xs font-bold text-cyan-400 ${outfit.className}`}>
+                    New Message
+                  </span>
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowNewMessagePopup(false);
+                    }}
+                    className="ml-auto text-white/50 hover:text-white/80 transition-colors duration-200"
+                  >
+                    <X className="w-3 h-3" />
+                  </motion.button>
+                </div>
+
+                {/* Message Preview */}
+                <div className="flex items-start gap-3">
+                  <Avatar className="w-8 h-8 flex-shrink-0 ring-1 ring-cyan-400/30">
+                    <AvatarImage 
+                      src={latestMessage.userImage} 
+                      alt={latestMessage.username}
+                      className="object-cover"
+                    />
+                    <AvatarFallback className={`
+                      text-xs font-bold bg-gradient-to-br from-cyan-400 to-teal-400 text-white
+                      ${outfit.className}
+                    `}>
+                      {getUserInitials(latestMessage.username)}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-sm font-bold text-white truncate ${outfit.className}`}>
+                        {latestMessage.username}
+                      </span>
+                      {latestMessage.isAdmin && (
+                        <Badge className="text-xs bg-gradient-to-r from-amber-500 to-orange-500 border-0 px-1.5 py-0.5">
+                          Admin
+                        </Badge>
+                      )}
+                    </div>
+                    <p className={`text-sm text-white/80 line-clamp-2 ${inter.className}`}>
+                      {latestMessage.message}
+                    </p>
+                    <span className={`text-xs text-white/50 ${jetBrainsMono.className}`}>
+                      {formatTime(latestMessage.timestamp)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Click to view indicator */}
+                <div className="mt-3 text-center">
+                  <span className={`text-xs text-cyan-400/80 ${inter.className}`}>
+                    Click to open chat
+                  </span>
+                </div>
+
+                {/* Glow effect */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400/10 to-teal-400/10 pointer-events-none"></div>
               </motion.div>
             )}
           </AnimatePresence>

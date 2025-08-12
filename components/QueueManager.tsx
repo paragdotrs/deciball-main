@@ -11,7 +11,7 @@ import { Input } from '@/app/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/app/components/ui/dialog';
 import { PiArrowFatLineUpFill } from "react-icons/pi";
 import { LuArrowBigUpDash } from "react-icons/lu";
-import { Link, Plus, Loader2, MessageCircle, X } from 'lucide-react';
+import { Link, Plus, Loader2, MessageCircle, X, Trash2 } from 'lucide-react';
 import { Chat } from './Chat';
 import { 
   PlayIcon, 
@@ -454,10 +454,9 @@ const SongCard = ({
                     size="sm"
                     onClick={handleRemoveClick}
                     className={`px-2 sm:px-3 py-1.5 sm:py-2 bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/30 hover:border-red-500/50 backdrop-blur-xl shadow-xl ring-1 ring-red-500/20 hover:ring-red-500/30 min-w-[44px] min-h-[44px] flex items-center justify-center ${outfit.className} font-medium`}
+                    title="Remove song from queue"
                   >
-                    <div className="text-current">
-                      <DeleteIcon width={12} height={12} className="sm:w-3.5 sm:h-3.5" />
-                    </div>
+                    <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400" />
                   </Button>
                 </motion.div>
               )}
@@ -538,7 +537,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       return cleanedUrl;
     }
     
-    console.warn('Could not extract YouTube video ID from:', cleanedUrl);
     return cleanedUrl;
   };
 
@@ -587,29 +585,21 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
 
     const handleMessage = (event: MessageEvent) => {
       const { type, data } = JSON.parse(event.data);
-      console.log('QueueManager received message:', { type, data });
       
       switch (type) {
         case 'queue-update':
-          console.log('Queue update received:', data.queue);
           setQueue(data.queue || []);
           break;
         case 'current-song-update':
-          console.log('Current song update:', data.song);
           setCurrentPlaying(data.song || null);
           
           if (data.song) {
-            console.log('Starting playback of new current song:', data.song.title);
-            
             const isSameSong = audioCurrentSong?.id === data.song.id;
             const { isPlaying } = useAudioStore.getState();
             
             if (isSameSong && isPlaying) {
-              console.log('Same song already playing, skipping playback restart');
-              
               const { pendingSync } = useAudioStore.getState();
               if (pendingSync) {
-                console.log('Applying pending sync for existing song');
                 const { handleRoomSync } = useAudioStore.getState();
                 const youtubeVideoId = extractYouTubeVideoId(data.song.youtubeUrl || data.song.url);
                 const existingAudioSong = {
@@ -683,10 +673,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             setTimeout(() => {
               const { pendingSync, youtubePlayer } = useAudioStore.getState();
               if (pendingSync) {
-                console.log('Applying pending sync after song load for new user');
-                
                 if (youtubePlayer && youtubePlayer.seekTo) {
-                  console.log('YouTube player ready, applying sync directly');
                   youtubePlayer.seekTo(pendingSync.timestamp, true);
                   if (pendingSync.isPlaying) {
                     youtubePlayer.playVideo();
@@ -695,25 +682,18 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                   }
                   const { handleRoomSync } = useAudioStore.getState();
                   handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, audioSong, true);
-                } else {
-                  console.log('YouTube player not ready yet, pending sync will be applied when ready');
                 }
               }
             }, 1500);
-          } else {
-            console.log('No current song to play');
           }
           break;
         case 'song-added':
-          console.log('Song added to queue:', data.song);
           setQueue(prev => {
             const newQueue = [...prev, data.song];
-            console.log('Updated queue length:', newQueue.length);
             return newQueue;
           });
           break;
         case 'vote-updated':
-          console.log('Vote updated:', { streamId: data.streamId, voteCount: data.voteCount });
           setQueue(prev => prev.map(item => 
             item.id === data.streamId 
               ? { ...item, voteCount: data.voteCount, upvotes: data.upvotes }
@@ -724,8 +704,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
     };
 
     socket.addEventListener('message', handleMessage);
-    
-    console.log('Requesting initial queue for space:', spaceId);
     sendMessage('get-queue', { spaceId });
 
     return () => {
@@ -737,14 +715,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
     const item = queue.find(q => q.id === streamId);
     const hasVoted = item?.upvotes?.some(vote => vote.userId === user?.id) || false;
     
-    console.log('Vote action:', { 
-      streamId, 
-      hasVoted, 
-      action: hasVoted ? 'downvote' : 'upvote',
-      userId: user?.id,
-      currentUpvotes: item?.upvotes 
-    });
-    
     if (hasVoted) {
       voteOnSong(streamId, 'downvote');
     } else {
@@ -754,41 +724,36 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
 
   const handlePlayInstant = (songId: string) => {
     if (!adminStatus) {
-      console.log('[QueueManager] Play instant action denied - user is not admin');
       return;
     }
-    console.log('[QueueManager] Admin playing song instantly:', songId);
     sendMessage("play-instant", { spaceId, songId });
   };
 
   const handlePlayNext = () => {
     if (!adminStatus) return;
-    console.log('Admin playing next song for space:', spaceId);
     sendMessage('play-next', { spaceId });
   };
 
   const handleRemoveSong = (streamId: string) => {
-    if (!adminStatus) return;
-    console.log('Admin removing song:', streamId);
-    sendMessage('remove-song', { spaceId, streamId });
+    if (!adminStatus) {
+      showToast('Only admins can remove songs', 'error');
+      return;
+    }
+    const success = sendMessage('remove-song', { spaceId, streamId });
+    if (success) {
+      showToast('Song removed from queue', 'success');
+    } else {
+      showToast('Failed to remove song', 'error');
+    }
   }
 
   const handleEmptyQueue = () => {
     if (!adminStatus) return;
-    console.log('Admin emptying queue for space:', spaceId);
     sendMessage('empty-queue', { spaceId });
   };
 
   const hasUserVoted = (item: QueueItem) => {
-    const voted = item.upvotes?.some(vote => vote.userId === user?.id) || false;
-    console.log('hasUserVoted check:', { 
-      songId: item.id, 
-      songTitle: item.title,
-      voted, 
-      userId: user?.id, 
-      upvotes: item.upvotes 
-    });
-    return voted;
+    return item.upvotes?.some(vote => vote.userId === user?.id) || false;
   };
 
   // Direct URL/Link adding functionality
@@ -812,7 +777,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   const handleAddDirectUrl = async () => {
     if (!directUrl.trim()) return;
     if (!adminStatus) {
-      console.log('[QueueManager] Direct URL add denied - user is not admin');
       return;
     }
 
@@ -821,8 +785,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       const trimmedUrl = directUrl.trim();
       
       if (isValidYouTubeUrl(trimmedUrl) || isValidSpotifyUrl(trimmedUrl)) {
-        console.log('[QueueManager] Adding direct URL:', trimmedUrl);
-        
         const success = sendMessage('add-to-queue', {
           spaceId,
           url: trimmedUrl,
@@ -831,7 +793,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
         });
 
         if (success) {
-          console.log('✅ Direct URL sent for processing');
           showToast('Link added to queue successfully!', 'success');
           setDirectUrl('');
           setShowDirectUrlDialog(false);
@@ -842,7 +803,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
         throw new Error('Invalid URL format. Please provide a valid YouTube or Spotify link.');
       }
     } catch (error: any) {
-      console.error('Error adding direct URL:', error);
       showToast(error.message || 'Failed to add link', 'error');
     } finally {
       setIsAddingDirectUrl(false);
@@ -862,7 +822,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   const handleProcessSpotifyPlaylist = async () => {
     if (!playlistUrl.trim()) return;
     if (!adminStatus) {
-      console.log('[QueueManager] Playlist processing denied - user is not admin');
       return;
     }
 
@@ -875,8 +834,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       if (!isValidSpotifyPlaylistUrl(trimmedUrl)) {
         throw new Error('Invalid Spotify playlist URL. Please provide a valid Spotify playlist link.');
       }
-
-      console.log('[QueueManager] Processing Spotify playlist:', trimmedUrl);
       
       // Step 1: Get playlist tracks
       setPlaylistProgress(prev => prev ? { ...prev, status: 'Fetching playlist tracks...' } : null);
@@ -888,7 +845,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       }
 
       const tracks = response.data.data.tracks;
-      console.log(`Retrieved ${tracks.length} tracks from playlist`);
 
       if (tracks.length === 0) {
         throw new Error('No tracks found in playlist');
@@ -928,7 +884,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       });
 
       if (success) {
-        console.log(`✅ Playlist batch sent: ${songsForBatch.length} tracks`);
         setPlaylistProgress(prev => prev ? { 
           ...prev, 
           status: 'Processing playlist with worker pool...',
@@ -939,7 +894,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       }
       
     } catch (error: any) {
-      console.error('Error processing Spotify playlist:', error);
       showToast(error.message || 'Failed to process playlist', 'error');
       setPlaylistProgress(prev => prev ? { 
         ...prev, 
@@ -960,7 +914,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       const { type, data } = JSON.parse(event.data);
       
       if (type === 'processing-progress') {
-        console.log('📊 Playlist processing progress:', data);
         setPlaylistProgress({
           current: data.current || 0,
           total: data.total || 0,
@@ -969,7 +922,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           status: data.status || 'Processing...'
         });
       } else if (type === 'batch-processing-result') {
-        console.log('🎉 Playlist processing completed:', data);
         const successCount = data.successful || 0;
         const failedCount = data.failed || 0;
         
