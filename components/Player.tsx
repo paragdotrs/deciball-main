@@ -175,7 +175,7 @@ export const Player: React.FC<PlayerProps> = ({
             animate={{ opacity: 1 }}
             transition={{ duration: 0.7, delay: 0.2 }}
           >
-            <div className="p-3 sm:p-4 bg-[#1C1E1F] backdrop-blur-md">
+            <div className="rounded-xl p-3 sm:p-4 bg-[#1C1E1F] backdrop-blur-md">
               <div className={`grid gap-4 sm:gap-6 ${isExpanded ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
                 <div className="space-y-3 sm:space-y-4">
                   {activeTab === 'cover' && (

@@ -153,7 +153,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   useEffect(() => {
     if (spaceInfo?.hostId && session?.user?.id && isAdmin !== computedIsAdmin) {
       setIsAdmin(computedIsAdmin);
-      console.log("[katana] Fast computed admin status:", computedIsAdmin);
     }
   }, [computedIsAdmin, isAdmin, setIsAdmin, spaceInfo?.hostId, session?.user?.id]);
 
